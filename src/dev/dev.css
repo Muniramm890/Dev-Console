@@ -1,14 +1,31 @@
-.dc-wrap { max-width: 1100px; margin: 0 auto; padding: 14px 14px 80px; }
-.dc-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-bottom: 1px solid var(--dc-border, #263047); position: sticky; top: 0; z-index: 20; background: var(--dc-bg, #0b0d14); }
-.dc-nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.dc-wrap { max-width: 1120px; margin: 0 auto; padding: 16px 14px 96px; }
+.dc-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid rgba(127,127,127,.25); position: sticky; top: 0; z-index: 30; backdrop-filter: blur(10px); background: rgba(11,13,20,.82); }
+.dc-brand { display: flex; align-items: center; gap: 10px; }
+.dc-brand img { width: 32px; height: 32px; border-radius: 9px; }
+.dc-nav { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .dc-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 14px; }
+.dc-kpi { border-left: 4px solid var(--k, #888); padding: 12px 14px; }
+.dc-kpi b { font-size: 26px; display: block; line-height: 1.1; }
+.dc-kpi span { font-size: 11px; opacity: .65; text-transform: uppercase; letter-spacing: .6px; }
 .dc-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.dc-school { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; cursor: pointer; }
-.dc-chip { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 11px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; }
+.dc-school { position: relative; overflow: hidden; padding-left: 20px !important; cursor: pointer; transition: transform .12s, box-shadow .12s; }
+.dc-school:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(0,0,0,.28); }
+.dc-stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; }
+.dc-chip { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 10.5px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; }
 .dc-label { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; opacity: .65; margin: 10px 0 4px; display: block; }
+.dc-seg { display: inline-flex; border: 1px solid rgba(127,127,127,.3); border-radius: 10px; overflow: hidden; }
+.dc-seg button { background: none; border: 0; color: inherit; padding: 7px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer; opacity: .7; }
+.dc-seg button.on { background: rgba(127,127,127,.25); opacity: 1; }
+.dc-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 14px; }
+.dc-tabs button { white-space: nowrap; }
+.dc-bar { height: 7px; border-radius: 7px; background: rgba(127,127,127,.22); overflow: hidden; margin-top: 4px; }
+.dc-bar > i { display: block; height: 100%; border-radius: 7px; }
+.dc-split { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.dc-bulk { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 60; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 10px 14px; max-width: calc(100vw - 20px); box-shadow: 0 10px 40px rgba(0,0,0,.5); }
 .dc-modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .dc-modal > div { width: 100%; max-width: 460px; max-height: 90vh; overflow: auto; }
 .dc-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 24px; z-index: 100001; padding: 10px 16px; border-radius: 12px; font-weight: 600; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
 .dc-fab { position: fixed; left: 10px; bottom: 10px; z-index: 99998; }
 .dc-panel { position: fixed; left: 10px; bottom: 56px; z-index: 99998; width: min(320px, calc(100vw - 20px)); }
 .dc-mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; }
+@media (max-width: 600px) { .dc-top { padding: 8px 10px; } .dc-nav .btn { padding: 6px 10px; font-size: 12px; } }

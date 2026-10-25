@@ -9,7 +9,7 @@ export const OpenSchoolModal = ({ school, initialWrite = false, onClose, onOpen 
   const [reason, setReason] = useState(sessionStorage.getItem("dc_reason") || ""); const [write, setWrite] = useState(initialWrite); const [busy, setBusy] = useState(false);
   const go = async () => { setBusy(true); sessionStorage.setItem("dc_reason", reason); try { await onOpen(school, { write, reason: reason.trim() }); onClose(); } finally { setBusy(false); } };
   return (
-    <Modal title={`Open ${school.name}`} onClose={onClose}>
+    <Modal title={school.userName ? `Open ${school.name} as ${school.userName}` : `Open ${school.name}`} onClose={onClose}>
       <p style={{ fontSize: 13, color: C.textMuted }}>You will see the school exactly as its admin sees it. Every open is written to the audit log.</p>
       <Field label="Reason (min 5 characters)"><input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Support ticket / checking fees report" /></Field>
       <label className="dc-row" style={{ marginTop: 12, fontSize: 13 }}><input type="checkbox" checked={write} onChange={(e) => setWrite(e.target.checked)} /> Write mode (can change data - every change is logged)</label>

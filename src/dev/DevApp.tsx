@@ -13,6 +13,7 @@ import { SchoolDetail } from "./pages/SchoolDetail";
 import { NewSchool } from "./pages/NewSchool";
 import { AuditPage } from "./pages/Audit";
 import { AnnouncementsPage } from "./pages/Announcements";
+import { SearchModal } from "./pages/Search";
 import { DevPanel, OpenSchoolModal } from "./DevPanel";
 import { C } from "../theme/theme";
 
@@ -26,11 +27,12 @@ export const DevApp = () => {
   const [acting, setActing] = useState(null);
   const [ask, setAsk] = useState(null);
   const [pw, setPw] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   const exit = useCallback((msg) => { clearSchoolSession(); window.__DEV_CONSOLE__ = null; setActing(null); if (msg) toast(msg); }, []);
   const enter = useCallback(async (school, { write, reason }) => {
     try {
-      const r = await papi(`/schools/${school.id}/act-as`, "POST", { as: "staff", write: !!write, reason });
+      const r = await papi(`/schools/${school.id}/act-as`, "POST", { as: "staff", write: !!write, reason, user_id: school.userId || undefined });
       clearSchoolSession();
       localStorage.setItem("erp_token", r.token);
       window.history.replaceState(null, "", "/");
@@ -67,9 +69,10 @@ export const DevApp = () => {
   return (
     <div style={{ minHeight: "100dvh" }}>
       <div className="dc-top">
-        <b className="syne" style={{ fontSize: 16 }}>School Office - Developer Console</b>
+        <div className="dc-brand"><img src="/favicon.svg" alt="" /><div><b className="syne" style={{ fontSize: 15, display: "block", lineHeight: 1.1 }}>School Office</b><span style={{ fontSize: 11, color: C.textMuted }}>Developer Console</span></div></div>
         <div className="dc-nav">
-          {nav("schools", "Schools")}{nav("audit", "Audit log")}{nav("announcements", "Announcements")}
+          {nav("schools", "Schools")}{nav("audit", "Audit")}{nav("announcements", "Notices")}
+          <button className="btn btn-ghost" onClick={() => setSearching(true)}>Search</button>
           <button className="btn btn-ghost" onClick={() => setPw(true)}>Password</button>
           <button className="btn btn-ghost" onClick={() => { setToken(null); setAuthed(false); }}>Logout</button>
         </div>
@@ -81,6 +84,7 @@ export const DevApp = () => {
         {name === "audit" && <AuditPage />}
         {name === "announcements" && <AnnouncementsPage />}
       </div>
+      {searching && <SearchModal onClose={() => setSearching(false)} go={setView} onOpen={setAsk} />}
       {ask && <OpenSchoolModal school={ask} onClose={() => setAsk(null)} onOpen={enter} />}
       {pw && <Modal title="Change password" onClose={() => setPw(false)} wide><ChangePwInline onDone={() => setPw(false)} /></Modal>}
       <Toasts />
