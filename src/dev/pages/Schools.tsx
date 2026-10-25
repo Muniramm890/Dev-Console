@@ -5,14 +5,14 @@ import { Chip, useLoad } from "../ui";
 import { C } from "../../theme/theme";
 
 export const SchoolsPage = ({ go, onOpen }) => {
-  const [q, setQ] = useState(""); const [st, setSt] = useState(""); const [del, setDel] = useState(false); const [page, setPage] = useState(1); const [items, setItems] = useState([]); const [total, setTotal] = useState(0); const [busy, setBusy] = useState(false);
+  const [q, setQ] = useState(""); const [st, setSt] = useState(""); const [del, setDel] = useState(false); const [page, setPage] = useState(1); const [items, setItems] = useState([]); const [total, setTotal] = useState(0); const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
   const ov = useLoad(() => papi("/overview"), []);
   const fetchPage = async (p, replace) => {
-    setBusy(true);
+    setBusy(true); setErr("");
     try {
       const r = await papi(`/schools?q=${encodeURIComponent(q)}&status=${st}&deleted=${del ? 1 : 0}&page=${p}&limit=30`);
       setItems((prev) => (replace ? r.items : [...prev, ...r.items])); setTotal(r.total); setPage(p);
-    } finally { setBusy(false); }
+    } catch (e) { setErr(e.message || "Could not load schools"); } finally { setBusy(false); }
   };
   useEffect(() => { const t = setTimeout(() => fetchPage(1, true), 250); return () => clearTimeout(t); }, [q, st, del]); // eslint-disable-line
   const o = ov.data || {};
@@ -43,7 +43,8 @@ export const SchoolsPage = ({ go, onOpen }) => {
             </div>
           </div>
         ))}
-        {!items.length && !busy && <div className="card" style={{ textAlign: "center", color: C.textMuted }}>No schools found.</div>}
+        {err && <div className="card" style={{ color: C.red, fontSize: 13 }}>{err} <button className="btn btn-ghost" onClick={() => fetchPage(1, true)}>Retry</button></div>}
+        {!items.length && !busy && !err && <div className="card" style={{ textAlign: "center", color: C.textMuted }}>No schools found.</div>}
         {items.length < total && <button className="btn btn-ghost" disabled={busy} onClick={() => fetchPage(page + 1, false)}>{busy ? "Loading..." : `Load more (${items.length}/${total})`}</button>}
       </div>
     </div>
