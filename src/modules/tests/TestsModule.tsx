@@ -30,6 +30,8 @@ import { C } from "../../theme/theme";
   const [activeClass, setActiveClass] = useState(null);
   const [activeSubject, setActiveSubject] = useState(null);
   const [activeChapter, setActiveChapter] = useState(null);
+  const [actionTestId, setActionTestId] = useState(null); // test opened on its own action page
+  const [copiedId, setCopiedId] = useState(false);
   const [printWorkspaceData, setPrintWorkspaceData] = useState(null);
   
   const [showPrintPromptModal, setShowPrintPromptModal] = useState(false);
@@ -425,41 +427,85 @@ import { C } from "../../theme/theme";
                   <Icon name="arrow_right" size={18} color={C.textMuted} style={{ transform: isOpen ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform 0.3s" }} />
                 </div>
                 {isOpen && (
-                  <div style={{ padding: 20, borderTop: `1px solid ${C.border}`, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
-                    {chapTests.map(t => {
-                      const statusColors = { "PUBLISHED": C.green, "DRAFT": C.textMuted, "CLOSED": C.red };
-                      const sColor = statusColors[t.status] || C.textMuted;
-                      return (
-                        <div key={t.testId} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 16, display: "flex", flexDirection: "column" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                            <div style={{ flex: 1, paddingRight: 10 }}><h5 style={{ fontSize: 14, fontWeight: 800, color: C.text, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={t.testName}>{t.testName}</h5><p style={{ fontSize: 9, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: "1px", marginTop: 4 }}>{t.testId}</p></div>
-                            <span style={{ fontSize: 9, fontWeight: 800, padding: "3px 8px", borderRadius: 6, background: `${sColor}22`, color: sColor, border: `1px solid ${sColor}44` }}>{t.status}</span>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between", background: C.surfaceAlt, padding: "8px 12px", borderRadius: 10, marginBottom: 16, border: `1px solid ${C.border}` }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, display: "flex", alignItems: "center", gap: 4 }}><Icon name="timetable" size={12} color={C.primary} /> {t.duration}m</div>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, display: "flex", alignItems: "center", gap: 4 }} title="Result Visibility"><Icon name="eye" size={12} color={t.resultVisibility === 'HIDDEN' ? C.red : C.green} /> {t.resultVisibility}</div>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: C.textMuted, display: "flex", alignItems: "center", gap: 4 }}><Icon name="test" size={12} color={C.yellow} /> {t.questionCount} Qs</div>
-                          </div>
-                          <div style={{ display: "flex", gap: 8, marginTop: "auto", paddingTop: 12, borderTop: `1px solid ${C.border}66` }}>
-                            <select className="select" style={{ flex: 1, fontSize: 10, fontWeight: 800, padding: "6px", textAlign: "center", color: sColor }} value={t.status} onChange={(e) => handleStatusChange(t.testId, e.target.value)}>
-                              <option value="DRAFT">DRAFT</option><option value="PUBLISHED">PUBLISH</option><option value="CLOSED">CLOSE</option>
-                            </select>
-                            <div style={{ display: "flex", gap: 6 }}>
-                              <button className="btn btn-ghost" style={{ padding: "6px 8px" }} title="Settings" onClick={() => openSettingsModal(t)}><Icon name="setup" size={14} /></button>
-                              <button className="btn btn-ghost" style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 4, background: `${C.blue}15`, color: C.blue }} title="Attempts" onClick={() => openAttemptsModal(t)}>
-                                <Icon name="students" size={14} /> <span style={{ fontSize: 10, fontWeight: 800 }}>{t.attemptCount}</span>
-                              </button>
-                              <button className="btn btn-danger" style={{ padding: "6px 8px" }} title="Delete" onClick={() => handleDelete(t.testId)}><Icon name="trash" size={14} /></button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+              <div style={{ padding: "12px 16px 16px", borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 8 }}>
+                {chapTests.map(t => {
+                  const sColor = { "PUBLISHED": C.green, "DRAFT": C.textMuted, "CLOSED": C.red }[t.status] || C.textMuted;
+                  return (
+                    <div key={t.testId} onClick={() => { setActionTestId(t.testId); setViewState("test"); }}
+                      style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: C.surfaceAlt, border: `1px solid ${C.border}`, borderLeft: `4px solid ${sColor}`, borderRadius: 12, cursor: "pointer" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={t.testName}>{t.testName}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, marginTop: 2 }}>ID: {t.testId} - {t.questionCount} Qs - {t.duration}m - {t.attemptCount} attempts</div>
+                      </div>
+                      <span style={{ fontSize: 9, fontWeight: 800, padding: "3px 8px", borderRadius: 6, background: `${sColor}22`, color: sColor, border: `1px solid ${sColor}44` }}>{t.status}</span>
+                      <Icon name="arrow_right" size={16} color={C.textMuted} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
               </div>
             );
           })}
+        </div>
+      </div>
+    );
+  };
+
+
+  // Action page of one test: everything for that test in one place (print, attempts, settings, status, delete)
+  const renderTestActions = () => {
+    const t = tests.find((x) => x.testId === actionTestId);
+    const back = () => { setViewState("chapters"); setActionTestId(null); };
+    if (!t) return (
+      <div className="slide-in card" style={{ textAlign: "center", padding: 30 }}>
+        <p style={{ color: C.textMuted, marginBottom: 14 }}>This test is no longer available.</p>
+        <button className="btn btn-primary" onClick={back}>Back to chapter</button>
+      </div>
+    );
+    const sColor = { "PUBLISHED": C.green, "DRAFT": C.textMuted, "CLOSED": C.red }[t.status] || C.textMuted;
+    const tile = (icon, title, desc, onClick, color, disabled) => (
+      <button key={title} className="card" disabled={disabled} onClick={onClick}
+        style={{ textAlign: "left", cursor: disabled ? "default" : "pointer", display: "flex", gap: 14, alignItems: "center", padding: 16, border: `1px solid ${color}55`, background: `${color}10`, opacity: disabled ? 0.6 : 1 }}>
+        <div style={{ width: 42, height: 42, borderRadius: 12, background: `${color}22`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name={icon} size={20} color={color} /></div>
+        <div style={{ minWidth: 0 }}><div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{title}</div><div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 2 }}>{desc}</div></div>
+      </button>
+    );
+    const info = (label, value) => (<div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.border}66`, fontSize: 13 }}><span style={{ color: C.textMuted }}>{label}</span><b style={{ textAlign: "right", overflowWrap: "anywhere" }}>{value ?? "-"}</b></div>);
+    return (
+      <div className="slide-in pb-10">
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, background: C.surfaceAlt, padding: "12px 16px", borderRadius: 16, border: `1px solid ${C.border}`, flexWrap: "wrap" }}>
+          <button className="btn btn-ghost" style={{ padding: "8px 12px", background: C.surface }} onClick={back}><Icon name="arrow_right" size={14} style={{ transform: "rotate(180deg)" }} /></button>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <h2 className="syne" style={{ fontSize: 20, fontWeight: 800, color: C.text, margin: 0 }}>{t.testName}</h2>
+            <p style={{ fontSize: 11, color: C.textMuted, fontWeight: 700, margin: "2px 0 0 0" }}>{t.classVal} - {t.subject} - {t.chapterName || activeChapter}</p>
+          </div>
+          <span style={{ fontSize: 10, fontWeight: 800, padding: "4px 10px", borderRadius: 8, background: `${sColor}22`, color: sColor, border: `1px solid ${sColor}44` }}>{t.status}</span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "start" }}>
+          <div className="card">
+            <h3 className="syne" style={{ fontSize: 13, fontWeight: 800, marginBottom: 6, color: C.primary, textTransform: "uppercase" }}>Test details</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `1px solid ${C.border}66`, fontSize: 13 }}>
+              <span style={{ color: C.textMuted }}>Test ID</span>
+              <b style={{ marginLeft: "auto", fontFamily: "monospace" }}>{t.testId}</b>
+              <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: 11 }} onClick={() => { navigator.clipboard?.writeText(t.testId); setCopiedId(true); setTimeout(() => setCopiedId(false), 1500); }}>{copiedId ? "Copied" : "Copy"}</button>
+            </div>
+            {info("Duration", `${t.duration} min`)}{info("Questions", t.questionCount)}{info("Attempts", t.attemptCount)}{info("Result visibility", t.resultVisibility)}
+            <div style={{ paddingTop: 12 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, display: "block", marginBottom: 6 }}>STATUS</label>
+              <select className="select" style={{ width: "100%", fontWeight: 800, color: sColor }} value={t.status} onChange={(e) => handleStatusChange(t.testId, e.target.value)}>
+                <option value="DRAFT">DRAFT</option><option value="PUBLISHED">PUBLISHED</option><option value="CLOSED">CLOSED</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {tile("download", "Print question paper", "Open Print Studio for this test (PDF)", () => openPrintWorkspace(t.testId), C.primary, fetchingPaper)}
+            {tile("students", `Attempts and reports (${t.attemptCount})`, "Student results, analysis, proctoring and report PDFs", () => openAttemptsModal(t), C.blue)}
+            {tile("setup", "Test settings", "Class, duration, result visibility and who can take it", () => openSettingsModal(t), C.yellow)}
+            {tile("trash", "Delete test", "Removes this test permanently", () => handleDelete(t.testId), C.red)}
+          </div>
         </div>
       </div>
     );
@@ -488,6 +534,7 @@ import { C } from "../../theme/theme";
       {viewState === "classes" && renderClasses()}
       {viewState === "subjects" && renderSubjects()}
       {viewState === "chapters" && renderChapters()}
+      {viewState === "test" && renderTestActions()}
 
       {/* ── EXISTING MODALS (Settings, Attempts, Wizard) ── */}
       <Modal open={showSettings} onClose={() => setShowSettings(false)} title="Test Configuration" width={460}>
