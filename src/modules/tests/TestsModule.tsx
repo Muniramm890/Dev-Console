@@ -11,6 +11,8 @@ import { Modal } from "../../components/ui/Modal";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { useDialog } from "../../contexts/DialogContext";
 import { PrintPaperWorkspace } from "./PrintPaperWorkspace";
+import { openGeneratedPdf } from "../../utils/fetchDoc";
+import { explain } from "../../utils/apiErrors";
 import { C } from "../../theme/theme";
 
  // ═══════════════════════════════════════════════════════════════
@@ -171,6 +173,7 @@ import { C } from "../../theme/theme";
   // 🔴 NEW: Report & Proctoring States
   const [showReport, setShowReport] = useState(false);
   const [activeReport, setActiveReport] = useState(null); // Merged Attempt + Test Data
+  const [reportPdfBusy, setReportPdfBusy] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
   
   const [showProctoring, setShowProctoring] = useState(false);
@@ -646,7 +649,12 @@ import { C } from "../../theme/theme";
                  <Icon name="timetable" size={14} style={{ display: "inline", verticalAlign: "middle" }} /> Time Taken: {activeReport.student.timeTaken}
                </div>
                <div style={{ display: "flex", gap: 10 }}>
-                 <button className="btn btn-ghost" onClick={() => dialogAlert("PDF Generation coming soon.", "Print")}><Icon name="download" size={14}/> Print PDF</button>
+                 <button className="btn btn-ghost" disabled={reportPdfBusy} onClick={async () => {
+                    setReportPdfBusy(true);
+                    try {
+                      await openGeneratedPdf("/quick-tests/attempt-report", { method: "POST", name: `Report ${activeReport.student.name || "Student"}.pdf`, title: "Student Report", body: { testId: selectedTest?.testId || activeReport.testData?.meta?.testId || activeReport.student.testId, row: activeReport.student._row } });
+                    } catch (e) { dialogAlert("Could not create the report: " + explain(e), "Print"); } finally { setReportPdfBusy(false); }
+                  }}><Icon name="download" size={14}/> {reportPdfBusy ? "Preparing..." : "Print PDF"}</button>
                  <button className="btn btn-primary" style={{ background: "#0f172a", color: C.green, border: `1px solid ${C.green}55` }} onClick={() => viewProctoringLogs(activeReport.student.proctorUrl)}>
                    <Icon name="eye" size={14}/> View Proctoring
                  </button>
