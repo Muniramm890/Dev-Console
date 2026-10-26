@@ -3,12 +3,13 @@
 import { API_BASE_URL } from "../api/client";
 import { openPdf } from "./openDocument";
 
-export async function openGeneratedPdf(endpoint: string, opts: { name: string; title?: string }): Promise<{ count: number | null }> {
+export async function openGeneratedPdf(endpoint: string, opts: { name: string; title?: string; method?: string; body?: any }): Promise<{ count: number | null }> {
   const token = localStorage.getItem("erp_token");
   const headers: Record<string, string> = { Accept: "application/pdf" };
+  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
   if (token && token !== "undefined" && token !== "null") headers.Authorization = `Bearer ${token}`;
   let res: Response;
-  try { res = await fetch(`${API_BASE_URL}${endpoint}`, { headers }); }
+  try { res = await fetch(`${API_BASE_URL}${endpoint}`, { method: opts.method || "GET", headers, body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined }); }
   catch { throw new Error("Could not reach the server. Please check your internet connection and try again."); }
   if (!res.ok) {
     if (res.status === 401) throw new Error("Session expired. Please login again.");
