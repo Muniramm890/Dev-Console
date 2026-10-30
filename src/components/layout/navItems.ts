@@ -17,9 +17,10 @@ export const NAV_ITEMS = [
     items: [
       { id: "attendance", label: "Attendance", icon: "attendance" },
       { id: "homework", label: "Homework", icon: "homework" },
-      { id: "tests", label: "Quick Tests", icon: "test" },
-      { id: "timetable", label: "Timetable", icon: "timetable" },
-      { id: "arrangement", label: "Substitution", icon: "refresh" },
+      { id: "tests", label: "Quick Tests", icon: "zap" },
+      { id: "timetable", label: "Timetable", icon: "schedule" },
+      { id: "calendar", label: "Calendar", icon: "calendar" },
+      { id: "arrangement", label: "Substitution", icon: "swap" },
     ],
   },
   {
@@ -43,7 +44,7 @@ export const NAV_ITEMS = [
       { id: "fees", label: "Fee Management", icon: "fee" },
       { id: "payroll", label: "Payroll", icon: "wallet" },
       { id: "TransportModule", label: "Transport", icon: "bus" },
-      { id: "promotion", label: "Promotion & TC", icon: "arrow_right" },
+      { id: "promotion", label: "Promotion & TC", icon: "graduation" },
       { id: "setup", label: "School Setup", icon: "setup" },
     ],
   },
@@ -51,8 +52,8 @@ export const NAV_ITEMS = [
     group: "ADMINISTRATION",
     superAdminOnly: true,
     items: [
-      { id: "usermanagement", label: "User Management", icon: "user" },
-      { id: "auditlogs", label: "Audit Logs", icon: "attendance" },
+      { id: "usermanagement", label: "User Management", icon: "usercheck" },
+      { id: "auditlogs", label: "Audit Logs", icon: "audit" },
     ],
   },
 ];

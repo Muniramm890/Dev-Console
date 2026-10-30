@@ -1,28 +1,47 @@
 // FILE: teacher-app/src/modules/exams/DateSheetTab.tsx
 // Source: admin App.tsx -> DateSheetTab [16722-17106]
 // @ts-nocheck
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "../../api/client";
 import { explain } from "../../utils/apiErrors";
 import { useGradeSubjects } from "../../shared/subjects/useGradeSubjects";
 import { C } from "../../theme/theme";
+import { AdmitCardPanel } from "./AdmitCardPanel";
+import { DateField } from "./DateField";
+import { useDialog } from "../../contexts/DialogContext";
+import { Modal } from "../../components/ui/Modal";
 
 // ═══════════════════════════════════════════════════════════════
 // DATE SHEET TAB — per exam, pick a class, tick which subjects are
 // part of this exam, set date/time/marks via dropdowns+pickers.
 // ═══════════════════════════════════════════════════════════════
-export const DateSheetTab = ({ examId, examSections, grades, examStatus }) => {
+export const DateSheetTab = ({ examId, examSections, grades, examStatus, openAdmit, onAdmitShown }) => {
   const locked = examStatus === "published";
   const [sectionId, setSectionId] = useState(examSections[0]?.id || "");
   const currentSection = examSections.find((s) => s.id === sectionId);
   const gradeId = currentSection?.grade_id;
-  const { subjects: classSubjects } = useGradeSubjects(gradeId);
+  const { subjects: classSubjects } = useGradeSubjects(gradeId, sectionId);
 
   const [rows, setRows] = useState({}); // subject_id -> {included, exam_date, start_time, duration_minutes, max_marks, passing_marks}
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [bulkMax, setBulkMax] = useState(80);
   const [bulkDuration, setBulkDuration] = useState(120);
+  const [autoStart, setAutoStart] = useState("");
+  const [autoTime, setAutoTime] = useState("09:00");
+  const [gapDays, setGapDays] = useState(1);
+  const [skipSunday, setSkipSunday] = useState(true);
+  const [showCopy, setShowCopy] = useState(false);
+  const [copyTargets, setCopyTargets] = useState([]);
+  const [copying, setCopying] = useState(false);
+  const [autoMsg, setAutoMsg] = useState(null);
+  const [applyTo, setApplyTo] = useState("all"); // all | ticked
+  const tickSeq = useRef(0);
+  const { dialogAlert, dialogConfirm } = useDialog();
+  const [showAuto, setShowAuto] = useState(false);
+  const [showAdmit, setShowAdmit] = useState(!!openAdmit);
+  useEffect(() => { if (openAdmit) onAdmitShown?.(); }, []); // eslint-disable-line
+  const [autoErr, setAutoErr] = useState("");
 
   const load = async () => {
     if (!sectionId) return;
@@ -66,6 +85,7 @@ export const DateSheetTab = ({ examId, examSections, grades, examStatus }) => {
         ...prev,
         [subjectId]: {
           included: true,
+          _o: ++tickSeq.current,
           exam_date: cur?.exam_date || "",
           start_time: cur?.start_time || "09:00",
           duration_minutes: cur?.duration_minutes || bulkDuration,
@@ -92,13 +112,101 @@ export const DateSheetTab = ({ examId, examSections, grades, examStatus }) => {
         if (next[sid]?.included) {
           next[sid] = {
             ...next[sid],
-            max_marks: bulkMax,
+            max_marks: next[sid].is_grade_only ? 0 : bulkMax,
+            passing_marks: next[sid].is_grade_only ? 0 : Math.round(bulkMax * 0.33),
             duration_minutes: bulkDuration,
           };
         }
       });
       return next;
     });
+  };
+
+  // Auto-fill: schedules subjects one after another from the start date (Sundays optional).
+  // Order = the order in which subjects were ticked; if nothing is ticked yet, every subject of the class is used.
+  const autoFillDates = () => {
+    if (!autoStart) { setAutoErr("Please select a start date."); return; }
+    if (!classSubjects.length) { setAutoErr("No subjects are configured for this class."); return; }
+    // order: subjects ticked by the user first (in tick order), then the rest by their saved date, then class order
+    const rank = (x) => (x.r?._o != null ? [0, x.r._o, 0] : [1, x.r?.exam_date || "9999-12-31", x.i]);
+    const cmp = (a, b) => { const ra = rank(a), rb = rank(b); for (let k = 0; k < 3; k++) { if (ra[k] < rb[k]) return -1; if (ra[k] > rb[k]) return 1; } return 0; };
+    const order = classSubjects
+      .map((sub, i) => ({ id: sub.id, i, r: rows[sub.id] }))
+      .filter((x) => (applyTo === "all" ? true : x.r?.included))
+      .sort(cmp);
+    if (!order.length) { setAutoErr("Tick at least one subject, or choose \"All subjects\"."); return; }
+    const [y, m, d] = autoStart.split("-").map(Number);
+    const cur = new Date(y, m - 1, d);
+    const fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+    const skip = () => { while (skipSunday && cur.getDay() === 0) cur.setDate(cur.getDate() + 1); };
+    const dates = {};
+    skip();
+    order.forEach((x) => {
+      dates[x.id] = fmt(cur);
+      cur.setDate(cur.getDate() + Math.max(1, Number(gapDays) || 1));
+      skip();
+    });
+    setRows((prev) => {
+      const next = { ...prev };
+      order.forEach((x) => {
+        const base = prev[x.id] || {};
+        next[x.id] = {
+          duration_minutes: bulkDuration,
+          max_marks: bulkMax,
+          passing_marks: Math.round(bulkMax * 0.33),
+          ...base,
+          included: true,
+          exam_date: dates[x.id],
+          start_time: autoTime,
+        };
+      });
+      return next;
+    });
+    const first = dates[order[0].id], last = dates[order[order.length - 1].id];
+    setAutoErr("");
+    setShowAuto(false);
+    setAutoMsg({ ok: true, text: `Dates assigned to ${order.length} subject${order.length > 1 ? "s" : ""} (${first} to ${last}). Untick any subject that is not part of this exam, then click Save Date Sheet.` });
+  };
+
+  const copyToSections = async () => {
+    if (locked) return dialogAlert("Results are published. Unpublish the exam first.", "Date Sheet Locked");
+    const src = Object.entries(rows).filter(([, r]) => r.included);
+    if (!src.length) return dialogAlert("Fill in this class's date sheet first.", "Nothing to Copy");
+    if (src.some(([, r]) => !r.exam_date)) return dialogAlert("Set a date for every ticked subject first.", "Missing Dates");
+    if (!copyTargets.length) return dialogAlert("Select at least one class / section.", "No Class Selected");
+    if (!(await dialogConfirm(`The date sheets of ${copyTargets.length} section(s) will be replaced. Continue?`, "Replace Date Sheets"))) return;
+    setCopying(true);
+    let ok = 0;
+    const msgs = [];
+    for (const tid of copyTargets) {
+      const t = examSections.find((x) => x.id === tid);
+      const label = `${t?.grade_name} — ${t?.name}`;
+      try {
+        const res = await apiRequest(`/setup/grade-subjects?section_id=${tid}`);
+        const ids = new Set((Array.isArray(res?.data) ? res.data : []).map((x) => String(x.id).toLowerCase()));
+        const entries = src
+          .filter(([sid]) => ids.has(String(sid).toLowerCase()))
+          .map(([subject_id, r]) => ({
+            section_id: tid,
+            subject_id,
+            exam_date: r.exam_date,
+            start_time: r.start_time,
+            duration_minutes: Number(r.duration_minutes) || 120,
+            max_marks: r.is_grade_only ? 0 : Number(r.max_marks),
+            passing_marks: r.is_grade_only ? 0 : (r.passing_marks === "" || r.passing_marks === null || r.passing_marks === undefined ? null : Number(r.passing_marks)),
+            is_grade_only: !!r.is_grade_only,
+          }));
+        if (!entries.length) { msgs.push(`${label}: no matching subjects`); continue; }
+        await apiRequest(`/exams/${examId}/datesheet`, "PUT", { section_id: tid, entries });
+        ok++;
+        if (entries.length < src.length) msgs.push(`${label}: ${src.length - entries.length} subject(s) not found in this class`);
+      } catch (e) {
+        msgs.push(`${label}: ${explain(e)}`);
+      }
+    }
+    setCopying(false);
+    await dialogAlert(`Date sheet copied to ${ok} section(s).` + (msgs.length ? "\n\n" + msgs.join("\n") : ""), ok ? "Copy Complete" : "Copy Failed");
+    if (ok) setCopyTargets([]);
   };
 
   const handleSave = async () => {
@@ -116,13 +224,13 @@ export const DateSheetTab = ({ examId, examSections, grades, examStatus }) => {
         is_grade_only: !!r.is_grade_only // 
       }));
 
-    if (locked) { alert("Results are published. Unpublish the exam first to change the date sheet."); return; }
+    if (locked) return dialogAlert("Results are published. Unpublish the exam first to change the date sheet.", "Cannot Save");
     const badMax = entries.find((e) => !e.is_grade_only && !(e.max_marks > 0));
-    if (badMax) { alert("Max marks must be greater than 0 for every ticked subject."); return; }
+    if (badMax) return dialogAlert("Max marks must be greater than 0 for every ticked subject.", "Cannot Save");
     const badPass = entries.find((e) => !e.is_grade_only && e.passing_marks !== null && e.passing_marks > e.max_marks);
-    if (badPass) { alert(`Passing marks (${badPass.passing_marks}) cannot be more than max marks (${badPass.max_marks}).`); return; }
+    if (badPass) return dialogAlert(`Passing marks (${badPass.passing_marks}) cannot be more than max marks (${badPass.max_marks}).`, "Cannot Save");
     if (entries.some((e) => !e.exam_date)) {
-      alert("Please set an exam date for every ticked subject.");
+      await dialogAlert("Please set an exam date for every ticked subject.", "Missing Dates");
       return;
     }
 
@@ -132,10 +240,10 @@ export const DateSheetTab = ({ examId, examSections, grades, examStatus }) => {
         section_id: sectionId,
         entries,
       });
-      alert("✅ Date sheet saved!");
+      await dialogAlert("Date sheet saved successfully.", "Saved");
       await load();
     } catch (e) {
-      alert("Save failed: " + explain(e));
+      await dialogAlert(explain(e), "Save Failed");
     } finally {
       setSaving(false);
     }
@@ -227,16 +335,31 @@ export const DateSheetTab = ({ examId, examSections, grades, examStatus }) => {
           <button className="btn btn-ghost" onClick={applyBulkToAll}>
             Apply to Ticked Subjects
           </button>
-          <button
-            className="btn btn-primary"
-            style={{ marginLeft: "auto" }}
-            onClick={handleSave}
-            disabled={saving || locked}
-          >
-            {saving ? "Saving…" : "Save Date Sheet"}
-          </button>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="btn btn-ghost" onClick={() => { setAutoErr(""); setShowAuto(true); }} disabled={locked}>
+              Auto-fill Dates
+            </button>
+            {examSections.length > 1 && (
+              <button className="btn btn-ghost" onClick={() => setShowCopy(true)} disabled={locked}>
+                Copy to Other Classes
+              </button>
+            )}
+            <button className="btn btn-ghost" onClick={() => setShowAdmit(true)}>
+              Admit Cards
+            </button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={saving || locked}>
+              {saving ? "Saving…" : "Save Date Sheet"}
+            </button>
+          </div>
         </div>
       </div>
+
+      {autoMsg && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", marginBottom: 16, borderRadius: 8, border: `1px solid ${C.primary}`, fontSize: 13 }}>
+          <span style={{ flex: 1 }}>{autoMsg.text}</span>
+          <button className="btn btn-ghost" style={{ padding: "2px 10px" }} onClick={() => setAutoMsg(null)} aria-label="Dismiss">×</button>
+        </div>
+      )}
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {loading ? (
@@ -252,7 +375,7 @@ export const DateSheetTab = ({ examId, examSections, grades, examStatus }) => {
           Subjects tab first.
         </div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <div className="scroll-x">
         <table className="table" style={{ minWidth: 760 }}>
             <thead>
             <tr>
@@ -310,16 +433,7 @@ export const DateSheetTab = ({ examId, examSections, grades, examStatus }) => {
                       </label>
                     </td>
                     <td>
-                      <input
-                        className="input"
-                        type="date"
-                        style={{ width: 150 }}
-                        disabled={!r.included}
-                        value={r.exam_date || ""}
-                        onChange={(e) =>
-                          setRowField(sub.id, "exam_date", e.target.value)
-                        }
-                      />
+                      <DateField disabled={!r.included} value={r.exam_date || ""} onChange={(v) => setRowField(sub.id, "exam_date", v)} />
                     </td>
                     <td>
                       <input
@@ -400,6 +514,72 @@ export const DateSheetTab = ({ examId, examSections, grades, examStatus }) => {
           </div>
         )}
       </div>
+
+      <Modal open={showAuto} onClose={() => setShowAuto(false)} title="Auto-fill Dates" width={520}>
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 14 }}>
+          Subjects are scheduled one after another from the start date. Subjects you ticked yourself come first, in the order you ticked them.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 12 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: C.textMuted, marginBottom: 4 }}>START DATE</label>
+            <DateField value={autoStart} onChange={setAutoStart} width="100%" />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: C.textMuted, marginBottom: 4 }}>START TIME</label>
+            <input type="time" className="input" value={autoTime} onChange={(e) => setAutoTime(e.target.value)} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: C.textMuted, marginBottom: 4 }}>GAP BETWEEN PAPERS</label>
+            <select className="select" value={gapDays} onChange={(e) => setGapDays(Number(e.target.value))}>
+              {[1, 2, 3, 4].map((v) => (<option key={v} value={v}>{v === 1 ? "Every day" : `Every ${v} days`}</option>))}
+            </select>
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: C.textMuted, marginBottom: 4 }}>APPLY TO</label>
+            <select className="select" value={applyTo} onChange={(e) => setApplyTo(e.target.value)}>
+              <option value="all">All subjects</option>
+              <option value="ticked">Ticked subjects only</option>
+            </select>
+          </div>
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+          <input type="checkbox" checked={skipSunday} onChange={(e) => setSkipSunday(e.target.checked)} style={{ accentColor: C.primary }} />
+          Skip Sundays
+        </label>
+        {autoErr && <div style={{ color: "#dc2626", fontSize: 12, fontWeight: 600, marginTop: 10 }}>{autoErr}</div>}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+          <button className="btn btn-ghost" onClick={() => setShowAuto(false)}>Cancel</button>
+          <button className="btn btn-primary" onClick={autoFillDates}>Apply</button>
+        </div>
+      </Modal>
+
+      <Modal open={showCopy} onClose={() => setShowCopy(false)} title="Copy Date Sheet to Other Classes" width={560}>
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
+          Save this date sheet first, then select the classes to copy it to. Their existing date sheets will be replaced.
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+          {examSections.filter((x) => x.id !== sectionId).map((x) => {
+            const on = copyTargets.includes(x.id);
+            return (
+              <label key={x.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 8, border: `1px solid ${on ? C.primary : C.border}`, fontSize: 13, cursor: "pointer" }}>
+                <input type="checkbox" checked={on} style={{ accentColor: C.primary }}
+                  onChange={() => setCopyTargets((p) => (on ? p.filter((i) => i !== x.id) : [...p, x.id]))} />
+                {x.grade_name} — {x.name}
+              </label>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+          <button className="btn btn-ghost" onClick={() => setCopyTargets(examSections.filter((x) => x.id !== sectionId).map((x) => x.id))}>Select all</button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn-ghost" onClick={() => setShowCopy(false)}>Close</button>
+            <button className="btn btn-primary" onClick={copyToSections} disabled={copying || locked}>{copying ? "Copying…" : "Copy"}</button>
+          </div>
+        </div>
+      </Modal>
+
+      <AdmitCardPanel open={showAdmit} onClose={() => setShowAdmit(false)} examId={examId} sectionId={sectionId}
+        sectionLabel={(() => { const x = examSections.find((e) => e.id === sectionId); return x ? `${x.grade_name} — ${x.name}` : ""; })()} />
     </div>
   );
 };

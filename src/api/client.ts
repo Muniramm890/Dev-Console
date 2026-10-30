@@ -10,7 +10,29 @@ export const API_BASE_URL =
   let authLogoutRef = null; 
 export const setAuthLogoutRef = (fn) => { authLogoutRef = fn; }; 
 
-  export const apiRequest = async (endpoint, method = "GET", body = null, isFormData = false) => {
+  // Robust request wrapper:
+  //  - 30 s timeout (120 s for uploads) so a weak network never leaves a spinner forever
+  //  - GET is retried once on network error / timeout / 502-504 (safe: reads only)
+  //  - an identical write (same method + url + body) that is still in flight is NOT sent twice (double-tap on Save / Pay)
+  const inflight = new Map();
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const fetchWithTimeout = async (url, config, ms) => {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), ms);
+    try { return await fetch(url, { ...config, signal: ctl.signal }); }
+    catch (e) { if (e && e.name === "AbortError") { const te: any = new Error("The server is taking too long to respond. Please check your internet connection and try again."); te.timeout = true; throw te; } throw e; }
+    finally { clearTimeout(t); }
+  };
+
+  export const apiRequest = (endpoint, method = "GET", body = null, isFormData = false) => {
+    const key = !isFormData && method !== "GET" ? `${method} ${endpoint} ${body ? JSON.stringify(body) : ""}` : null;
+    if (key && inflight.has(key)) return inflight.get(key);
+    const p = apiRequestOnce(endpoint, method, body, isFormData).finally(() => { if (key) inflight.delete(key); });
+    if (key) inflight.set(key, p);
+    return p;
+  };
+
+  const apiRequestOnce = async (endpoint, method = "GET", body = null, isFormData = false) => {
     try {
       const token = localStorage.getItem("erp_token");
       const headers = { Accept: "application/json" };
@@ -22,7 +44,19 @@ export const setAuthLogoutRef = (fn) => { authLogoutRef = fn; };
       const config = { method, headers };
       if (body) config.body = isFormData ? body : JSON.stringify(body);
 
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+      const timeoutMs = isFormData ? 120000 : 30000;
+      let response;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          response = await fetchWithTimeout(`${API_BASE_URL}${endpoint}`, config, timeoutMs);
+          if (method === "GET" && attempt === 0 && [502, 503, 504].includes(response.status)) { await sleep(800); continue; }
+          break;
+        } catch (e) {
+          if (method === "GET" && attempt === 0) { await sleep(800); continue; }
+          if (e && e.timeout) throw e;
+          throw new Error("Could not reach the server. Please check your internet connection and try again.");
+        }
+      }
       if (response.status === 204) return null;
       
       let data = null;

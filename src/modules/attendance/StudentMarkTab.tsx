@@ -3,6 +3,7 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
+import { useSession } from "../../contexts/SessionContext";
 import { StatusPicker } from "./StatusPicker";
 import { useGradesAndSections } from "./useGradesAndSections";
 import { C } from "../../theme/theme";
@@ -26,7 +27,30 @@ export const StudentMarkTab = () => {
 
   
 
-  const filteredSections = sections.filter((s) => s.grade_id === gradeId);
+  // class-teacher scope: non-admin users can mark only their own classes (decided by backend from class teacher / timetable)
+  const { currentYear } = useSession();
+  const [access, setAccess] = useState({ ids: null, min: null });
+  useEffect(() => {
+    let off = false;
+    (async () => {
+      try {
+        const res = await apiRequest(`/attendance/students/my-sections?date=${date}${currentYear?.id ? `&academic_year_id=${currentYear.id}` : ""}`);
+        const d = res?.data;
+        if (!off && d) setAccess({ ids: d.is_admin ? null : new Set(d.section_ids || []), min: d.min_date || null });
+      } catch (_) { /* backend still enforces */ }
+    })();
+    return () => { off = true; };
+  }, [date, currentYear?.id]); // eslint-disable-line
+
+  const allowedSec = (s) => !access.ids || access.ids.has(s.id);
+  const visibleGrades = access.ids ? grades.filter((g) => sections.some((s) => s.grade_id === g.id && allowedSec(s))) : grades;
+  const filteredSections = sections.filter((s) => s.grade_id === gradeId && allowedSec(s));
+
+  useEffect(() => {
+    if (!access.ids) return;
+    if (gradeId && !visibleGrades.some((g) => g.id === gradeId)) { setGradeId(visibleGrades[0]?.id || ""); setSectionId(""); }
+    else if (sectionId && !access.ids.has(sectionId)) setSectionId(filteredSections[0]?.id || "");
+  }, [access, sections]); // eslint-disable-line
 
   useEffect(() => {
     if (grades.length && !gradeId) setGradeId(grades[0].id);
@@ -101,7 +125,7 @@ export const StudentMarkTab = () => {
           remarks: r.remarks || null,
         })),
       });
-      alert("✅ Attendance saved successfully!");
+      alert("✅ Attendance saved. Present: " + counts.P + ", Absent: " + counts.A + ", Leave: " + counts.L + ", On duty: " + counts.OD);
     } catch (e) {
       alert("❌ Save failed: " + e.message);
     } finally {
@@ -143,7 +167,7 @@ export const StudentMarkTab = () => {
               }}
             >
               <option value="">-- Select --</option>
-              {grades.map((g) => (
+              {visibleGrades.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.name}
                 </option>
@@ -192,8 +216,9 @@ export const StudentMarkTab = () => {
               type="date"
               style={{ width: 150 }}
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => setDate(!e.target.value || e.target.value > todayISO() ? todayISO() : e.target.value)}
               max={todayISO()}
+              min={access.min || undefined}
             />
           </div>
 
@@ -279,7 +304,7 @@ export const StudentMarkTab = () => {
             No students found for this class/section.
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="scroll-x">
             <table className="table">
               <thead>
                 <tr>

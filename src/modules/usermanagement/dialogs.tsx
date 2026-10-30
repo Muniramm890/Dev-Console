@@ -39,7 +39,7 @@ export const PasswordResetDialog = ({ open, onClose, name, request, title = "Res
   useEffect(() => { if (open) { setMode("auto"); setValue(""); setResult(null); } }, [open]);
 
   const submit = async () => {
-    if (mode === "custom" && value.trim().length < 6) return dialogAlert("Password must be at least 6 characters.", "Too Short");
+    if (mode === "custom" && value.trim().length < 8) return dialogAlert("Password must be at least 8 characters, with letters and numbers.", "Too Short");
     setSaving(true);
     try {
       const pw = await request(mode === "custom" ? value.trim() : undefined);
@@ -58,7 +58,7 @@ export const PasswordResetDialog = ({ open, onClose, name, request, title = "Res
         <div>
           <div style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Resetting password for <b style={{ color: C.text }}>{name}</b>. They will be logged out of every device.</div>
           <ModeToggle value={mode} onChange={setMode} />
-          {mode === "custom" && <FormRow label="New Password"><input className="input" type="text" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Minimum 6 characters" /></FormRow>}
+          {mode === "custom" && <FormRow label="New Password"><input className="input" type="text" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Minimum 8 characters (letters + numbers)" /></FormRow>}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
             <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
             <button className="btn btn-primary" onClick={submit} disabled={saving}>{saving ? "Resetting…" : "Reset Password"}</button>
@@ -116,7 +116,7 @@ export const AuthorizeStudentDialog = ({ student, onClose, onDone }) => {
           </FormRow>
           <FormRow label="Value"><input className="input" value={value} onChange={(e) => setValue(e.target.value)} /></FormRow>
           <div style={{ marginTop: 4 }}><ModeToggle value={mode} onChange={setMode} /></div>
-          {mode === "custom" && <FormRow label="Password"><input className="input" type="text" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Minimum 6 characters" /></FormRow>}
+          {mode === "custom" && <FormRow label="Password"><input className="input" type="text" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Minimum 8 characters (letters + numbers)" /></FormRow>}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
             <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
             <button className="btn btn-primary" onClick={submit} disabled={saving}>{saving ? "Authorizing…" : "Authorize Login"}</button>

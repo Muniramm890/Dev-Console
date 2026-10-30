@@ -32,7 +32,14 @@ export const fileNameOf = (d: DocRef) => {
   return n;
 };
 export const mimeOf = (d: DocRef) => d.mime || MIME[extOf(fileNameOf(d))] || "";
-export const isPdfDoc = (d: DocRef) => d.mime === "application/pdf" || extOf(d.name || "") === "pdf" || (!d.name && extOf(baseUrl(d.url)) === "pdf");
+// name can be missing/extension-less (e.g. "Worksheet") while the stored file is a PDF -> also trust the URL extension, unless the name clearly says another type
+export const isPdfDoc = (d: DocRef) => {
+  if (d.mime === "application/pdf") return true;
+  const ne = extOf(d.name || "");
+  if (ne === "pdf") return true;
+  if (ne && ne !== "pdf" && MIME[ne]) return false; // name says docx/jpg/... -> not a PDF
+  return extOf(baseUrl(d.url || "")) === "pdf";
+};
 const relPath = (d: DocRef) => (d.bytes ? `${DIR}/gen_${fileNameOf(d)}` : `${DIR}/${hash(baseUrl(d.url))}_${fileNameOf(d)}`); // same file = same path = dobara download nahi
 
 // ── PDF viewer hook-up (PdfViewerProvider apna opener yahan register karta hai) ──

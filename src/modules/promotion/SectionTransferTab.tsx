@@ -1,119 +1,84 @@
-// FILE: teacher-app/src/modules/promotion/SectionTransferTab.tsx
-// Source: admin App.tsx -> SectionTransferTab [9080-9189]
 // @ts-nocheck
+// Move a student to another section of the SAME class in the same session (no new history row, only the section changes).
 import { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
-import { FormRow } from "../../components/ui/FormRow";
-import { useSession } from "../../contexts/SessionContext";
+import { Avatar } from "../../components/ui/Avatar";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Icon } from "../../components/ui/Icon";
+import { SectionCard } from "../../components/ui/SectionCard";
 import { C } from "../../theme/theme";
+import { Chip, SectionChips, fullName, secLabel } from "./parts";
 
-export const SectionTransferTab = () => {
-  const { currentYear } = useSession();
+export const SectionTransferTab = ({ year }) => {
   const [sections, setSections] = useState([]);
-  const [fromSectionId, setFromSectionId] = useState("");
+  const [fromId, setFromId] = useState("");
   const [students, setStudents] = useState([]);
-  const [moves, setMoves] = useState({}); // { student_id: { to_section_id, roll_no, enrolment_id } }
+  const [moves, setMoves] = useState({});
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState("");
+  const [note, setNote] = useState(null); // {ok, text}
 
   useEffect(() => {
-    if (!currentYear) return;
-    apiRequest(`/setup/sections?academic_year_id=${currentYear.id}`)
-      .then((res) => setSections(Array.isArray(res?.data) ? res.data : []))
-      .catch(() => setSections([]));
-  }, [currentYear]);
+    setFromId(""); setStudents([]);
+    if (!year) return;
+    apiRequest(`/setup/sections?academic_year_id=${year.id}`).then((r) => setSections(Array.isArray(r?.data) ? r.data : [])).catch(() => setSections([]));
+  }, [year?.id]);
 
-  const loadStudents = async () => {
-    if (!fromSectionId || !currentYear) return;
-    setLoading(true);
-    setMsg("");
+  useEffect(() => {
+    if (!fromId || !year) return;
+    setLoading(true); setNote(null);
+    apiRequest(`/promotion/section-students?section_id=${fromId}&academic_year_id=${year.id}`)
+      .then((r) => { const list = r?.data?.students || []; setStudents(list); setMoves(Object.fromEntries(list.map((s) => [s.student_id, { to: "", roll: "", enrolment_id: s.enrolment_id }]))); })
+      .catch((e) => setNote({ ok: false, text: e.message })).finally(() => setLoading(false));
+  }, [fromId, year?.id]);
+
+  const from = sections.find((s) => s.id === fromId);
+  const targets = sections.filter((s) => from && s.id !== fromId && s.grade_id === from.grade_id);
+  const setMove = (id, patch) => setMoves((p) => ({ ...p, [id]: { ...p[id], ...patch } }));
+
+  const move = async (s) => {
+    const m = moves[s.student_id]; if (!m?.to) return;
+    setBusy(s.student_id); setNote(null);
     try {
-      const res = await apiRequest(`/promotion/section-students?section_id=${fromSectionId}&academic_year_id=${currentYear.id}`);
-      const list = res?.data?.students || [];
-      setStudents(list);
-      const m = {};
-      list.forEach((s) => { m[s.student_id] = { to_section_id: "", roll_no: s.roll_no || "", enrolment_id: s.enrolment_id }; });
-      setMoves(m);
-    } catch (e) {
-      setMsg(e.message);
-    } finally {
-      setLoading(false);
-    }
+      const r = await apiRequest("/promotion/section-change", "POST", { student_id: s.student_id, enrolment_id: m.enrolment_id, to_section_id: m.to, roll_no: m.roll });
+      setStudents((p) => p.filter((x) => x.student_id !== s.student_id));
+      setNote({ ok: true, text: `${fullName(s)} moved to ${secLabel(sections.find((x) => x.id === m.to))} (roll ${r?.data?.roll_no || "auto"}).` });
+    } catch (e) { setNote({ ok: false, text: e.message }); } finally { setBusy(""); }
   };
 
-  useEffect(() => { loadStudents(); }, [fromSectionId]); // eslint-disable-line
-
-  const setMove = (sid, patch) => setMoves((p) => ({ ...p, [sid]: { ...p[sid], ...patch } }));
-
-  const handleTransfer = async (studentId) => {
-    const m = moves[studentId];
-    if (!m?.to_section_id) return;
-    try {
-      await apiRequest("/promotion/section-change", "POST", {
-        student_id: studentId,
-        enrolment_id: m.enrolment_id,
-        to_section_id: m.to_section_id,
-        roll_no: m.roll_no,
-      });
-      setStudents((prev) => prev.filter((s) => s.student_id !== studentId));
-      setMsg("Section updated ✅");
-    } catch (e) {
-      setMsg(e.message);
-    }
-  };
-
+  if (!year) return <div className="card"><EmptyState icon="calendar" title="Select a session" sub="Choose the session at the top of this page." /></div>;
   return (
-    <div>
-      <div style={{ marginBottom: 16, fontSize: 12.5, color: C.textMuted }}>
-        Move a student from one section to another within the same session — no new history entry is created, only the current section changes.
-      </div>
-      <FormRow label="From Section">
-        <select className="select" value={fromSectionId} onChange={(e) => setFromSectionId(e.target.value)}>
-          <option value="">Select section</option>
-          {sections.map((s) => (
-            <option key={s.id} value={s.id}>{s.grade_name ? `${s.grade_name} - ${s.name}` : s.name}</option>
-          ))}
-        </select>
-      </FormRow>
-
-      {msg && <div style={{ fontSize: 12.5, color: C.textMuted, margin: "10px 0" }}>{msg}</div>}
-
-      {loading ? (
-        <div style={{ padding: 30, textAlign: "center", color: C.textMuted }}>Loading…</div>
-      ) : students.length > 0 && (
-        <div className="card" style={{ padding: 0, overflow: "hidden", marginTop: 12 }}>
-          <table className="table">
-            <thead>
-              <tr><th>Roll</th><th>Student</th><th>Move To Section</th><th>New Roll No</th><th></th></tr>
-            </thead>
-            <tbody>
-              {students.map((s) => (
-                <tr key={s.student_id}>
-                  <td>{s.roll_no}</td>
-                  <td>{s.first_name} {s.last_name}</td>
-                  <td>
-                    <select className="select" style={{ width: 150 }} value={moves[s.student_id]?.to_section_id || ""} onChange={(e) => setMove(s.student_id, { to_section_id: e.target.value })}>
-                      <option value="">Select</option>
-                      {sections.filter((sec) => sec.id !== fromSectionId && sec.grade_id === sections.find((f) => f.id === fromSectionId)?.grade_id).map((sec) => (
-                        <option key={sec.id} value={sec.id}>{sec.name}</option>
-                      ))}
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <SectionCard icon="refresh" title="Section transfer" sub={`Within ${year.name}: move a student to another section of the same class.`}>
+        {sections.length ? <SectionChips sections={sections} value={fromId} onChange={setFromId} /> : <div style={{ color: C.textMuted, fontSize: 13 }}>No sections in this session.</div>}
+      </SectionCard>
+      {note && <div style={{ fontSize: 13, fontWeight: 600, color: note.ok ? C.green : C.red }}>{note.text}</div>}
+      {loading ? <div className="pulse" style={{ padding: 40, textAlign: "center", color: C.primary, fontWeight: 600 }}>Loading…</div>
+        : fromId && (students.length === 0
+          ? <div className="card"><EmptyState icon="students" title="No active students in this section" sub="Pick another section." /></div>
+          : targets.length === 0
+            ? <div className="card"><EmptyState icon="warning" title="No other section of this class" sub="Create another section for this class in School Setup to transfer students." /></div>
+            : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {students.map((s) => (
+                  <div key={s.student_id} className="card" style={{ padding: "12px 16px", display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+                    <Avatar teacher={{ avatar_url: s.photo_url, full_name: fullName(s), gender: s.gender }} size={40} />
+                    <div style={{ flex: "1 1 180px" }}>
+                      <div style={{ fontWeight: 700 }}>{fullName(s)}</div>
+                      <div style={{ fontSize: 12, color: C.textMuted }}>Adm# {s.admission_no} · Roll {s.roll_no || "—"}</div>
+                    </div>
+                    <Chip color={C.textMuted}>{secLabel(from)}</Chip>
+                    <Icon name="arrow_right" size={15} />
+                    <select className="select" style={{ width: 170 }} value={moves[s.student_id]?.to || ""} onChange={(e) => setMove(s.student_id, { to: e.target.value })}>
+                      <option value="">Move to…</option>
+                      {targets.map((t) => <option key={t.id} value={t.id}>{t.name}{t.student_count != null ? ` (${t.student_count})` : ""}</option>)}
                     </select>
-                  </td>
-                  <td>
-                    <input className="input" style={{ width: 70 }} value={moves[s.student_id]?.roll_no || ""} onChange={(e) => setMove(s.student_id, { roll_no: e.target.value })} />
-                  </td>
-                  <td>
-                    <button className="btn btn-primary" style={{ fontSize: 12, padding: "5px 10px" }} onClick={() => handleTransfer(s.student_id)} disabled={!moves[s.student_id]?.to_section_id}>
-                      Move
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    <input className="input" style={{ width: 90 }} placeholder="Roll: auto" value={moves[s.student_id]?.roll || ""} onChange={(e) => setMove(s.student_id, { roll: e.target.value })} />
+                    <button className="btn btn-primary" style={{ padding: "8px 16px" }} disabled={!moves[s.student_id]?.to || busy === s.student_id} onClick={() => move(s)}>{busy === s.student_id ? "Moving…" : "Move"}</button>
+                  </div>
+                ))}
+              </div>
+            ))}
     </div>
   );
 };

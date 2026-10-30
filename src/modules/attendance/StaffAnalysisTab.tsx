@@ -169,7 +169,7 @@ export const StaffAnalysisTab = () => {
             Loading…
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="scroll-x">
             <table className="table">
               <thead>
                 <tr>
@@ -178,6 +178,8 @@ export const StaffAnalysisTab = () => {
                   <th>P</th>
                   <th>A</th>
                   <th>L</th>
+                  <th>PL</th>
+                  <th>HD</th>
                   <th>OD</th>
                   <th>%</th>
                 </tr>
@@ -192,6 +194,8 @@ export const StaffAnalysisTab = () => {
                     <td style={{ color: C.green }}>{t.present_days}</td>
                     <td style={{ color: C.red }}>{t.absent_days}</td>
                     <td style={{ color: C.yellow }}>{t.leave_days}</td>
+                    <td style={{ color: C.purple }}>{t.pl_days}</td>
+                    <td style={{ color: "#F97316" }}>{t.hd_days}</td>
                     <td style={{ color: C.blue }}>{t.od_days}</td>
                     <td>
                       <span

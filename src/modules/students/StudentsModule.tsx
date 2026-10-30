@@ -8,9 +8,11 @@ import { Field } from "../../components/ui/Field";
 import { FormGrid } from "../../components/ui/FormGrid";
 import { FormRow } from "../../components/ui/FormRow";
 import { Icon } from "../../components/ui/Icon";
+import { IdCardButton } from "../../components/ui/IdCardButton";
 import { LogoLoader } from "../../components/ui/LogoLoader";
 import { Modal } from "../../components/ui/Modal";
 import { SectionHeader } from "../../components/ui/SectionHeader";
+import { IdCardBulkButton } from "../../components/ui/IdCardBulkButton";
 import { useSession } from "../../contexts/SessionContext";
 import { IssueTCModal } from "./IssueTCModal";
 import { StudentCard } from "./StudentCard";
@@ -1076,6 +1078,7 @@ export const StudentsModule = () => {
         sub={`${students.length} students enrolled`}
         action={
           <div style={{ display: "flex", gap: 8 }}>
+            <IdCardBulkButton kind="student" sectionId={filterSec} />
             <button
               className="btn btn-ghost"
               onClick={() => {
@@ -1381,7 +1384,7 @@ export const StudentsModule = () => {
         </div>
       ) : (
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ overflowX: "auto" }}>
+          <div className="scroll-x">
             <table className="table">
               <thead>
                 <tr>
@@ -1939,6 +1942,7 @@ export const StudentsModule = () => {
                   >
                     Close
                   </button>
+                  <IdCardButton kind="student" id={selected.id} />
                   <button
                     className="btn btn-primary"
                     onClick={() => {

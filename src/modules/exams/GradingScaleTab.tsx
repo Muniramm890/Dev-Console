@@ -5,6 +5,7 @@ import { explain } from "../../utils/apiErrors";
 import { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
 import { Icon } from "../../components/ui/Icon";
+import { TableWrap } from "../../components/ui/TableWrap";
 import { C } from "../../theme/theme";
 
 // ═══════════════════════════════════════════════════════════════
@@ -101,6 +102,7 @@ export const GradingScaleTab = () => {
           <Icon name="plus" size={13} /> Add Band
         </button>
       </div>
+      <TableWrap>
       <table className="table">
         <thead>
           <tr>
@@ -166,6 +168,7 @@ export const GradingScaleTab = () => {
           ))}
         </tbody>
       </table>
+      </TableWrap>
       <div
         style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}
       >

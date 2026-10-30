@@ -10,6 +10,8 @@ import { useDialog } from "../../contexts/DialogContext";
 import { useSession } from "../../contexts/SessionContext";
 import { PayrollGenerateTab } from "./PayrollGenerateTab";
 import { PayslipLibraryTab } from "./PayslipLibraryTab";
+import { useLocation } from "react-router-dom";
+import { PayrollRegistersTab } from "./PayrollRegistersTab";
 import { PayslipViewModal } from "./PayslipViewModal";
 import { StaffPayrollSetupModal } from "./StaffPayrollSetupModal";
 import { addMonths, currentMonthYear, inr, monthLabel, monthRange } from "./helpers";
@@ -20,7 +22,8 @@ import { C } from "../../theme/theme";
 // ═══════════════════════════════════════════════════════════════
 export const PayrollModule = ({ school }) => {
   const { dialogAlert, dialogConfirm } = useDialog();
-  const [tab, setTab] = useState("overview"); // overview | staff | generate | payslips
+  const deepQs = new URLSearchParams(useLocation().search); // dashboard deep link: /payroll?tab=registers&view=bank
+  const [tab, setTab] = useState(() => (["overview", "staff", "generate", "payslips", "registers"].includes(deepQs.get("tab")) ? deepQs.get("tab") : "overview")); // overview | staff | generate | payslips | registers
 
   const [staffList, setStaffList] = useState([]);
   const [leaveTypes, setLeaveTypes] = useState([]);
@@ -107,8 +110,8 @@ export const PayrollModule = ({ school }) => {
           <h1 className="syne" style={{ fontSize: 24, fontWeight: 800, color: C.text, margin: 0 }}>Payroll</h1>
           <p style={{ fontSize: 12, color: C.textMuted, marginTop: 4 }}>Attendance-linked salary engine — computed live, audited, and paid.</p>
         </div>
-        <div style={{ display: "flex", gap: 8, background: C.surfaceAlt, padding: 4, borderRadius: 12, border: `1px solid ${C.border}` }}>
-          {[{ id: "overview", label: "Overview", icon: "chart" }, { id: "staff", label: "Staff Setup", icon: "users" }, { id: "generate", label: "Generate", icon: "plus" }, { id: "payslips", label: "Payslips", icon: "file" }].map((t) => (
+        <div style={{ display: "flex", gap: 8, background: C.surfaceAlt, padding: 4, borderRadius: 12, border: `1px solid ${C.border}`, maxWidth: "100%", overflowX: "auto" }}>
+          {[{ id: "overview", label: "Overview", icon: "chart" }, { id: "staff", label: "Staff Setup", icon: "users" }, { id: "generate", label: "Generate", icon: "plus" }, { id: "payslips", label: "Payslips", icon: "file" }, { id: "registers", label: "Registers", icon: "book" }].map((t) => (
             <button key={t.id} className="btn" onClick={() => setTab(t.id)}
               style={{ padding: "8px 14px", fontSize: 12.5, fontWeight: 700, borderRadius: 9, background: tab === t.id ? C.surface : "transparent", color: tab === t.id ? C.primary : C.textMuted, boxShadow: tab === t.id ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>
               {t.label}
@@ -232,6 +235,8 @@ export const PayrollModule = ({ school }) => {
           onRefresh={loadAll}
         />
       )}
+
+      {tab === "registers" && <PayrollRegistersTab initialView={deepQs.get("view")} />}
 
       <StaffPayrollSetupModal staff={setupStaff} open={!!setupStaff} onClose={() => setSetupStaff(null)} onSaved={loadAll} />
       <PayslipViewModal slipId={viewSlipId} open={!!viewSlipId} onClose={() => setViewSlipId(null)} school={school} />

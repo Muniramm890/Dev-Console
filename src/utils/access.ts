@@ -13,6 +13,7 @@ const ADMIN_ONLY_IDS = ["usermanagement", "auditlogs"];
 export const canAccess = (user, navId) => {
   if (!user) return false;
   if (user.role === "school_admin") return true;
+  if (navId === "calendar") return true; // every staff member can view the calendar and apply for leave (backend rules are open for it)
   if (ADMIN_ONLY_IDS.includes(navId)) return false;
   const key = PERMISSION_KEY_BY_NAV_ID[navId] || navId;
   return Array.isArray(user.permissions) && user.permissions.includes(key);

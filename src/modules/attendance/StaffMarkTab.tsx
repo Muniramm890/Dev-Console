@@ -6,7 +6,7 @@ import { apiRequest } from "../../api/client";
 import { StatusPicker } from "./StatusPicker";
 import { C } from "../../theme/theme";
 import { todayISO } from "../../utils/date";
-import { STATUS_KEYS, STATUS_META } from "../../utils/status";
+import { STAFF_STATUS_KEYS as STATUS_KEYS, STAFF_STATUS_META as STATUS_META } from "../../utils/status";
 
 // ═══════════════════════════════════════════════════════════════
 // TEACHERS — TAB 1: MARK ATTENDANCE
@@ -191,7 +191,7 @@ export const StaffMarkTab = () => {
             No teachers found.
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="scroll-x">
             <table className="table">
               <thead>
                 <tr>
@@ -239,7 +239,7 @@ export const StaffMarkTab = () => {
                       {r.department || "—"}
                     </td>
                     <td style={{ textAlign: "center" }}>
-                      <StatusPicker
+                      <StatusPicker staff
                         value={r.status}
                         onChange={(s) => setStatus(r.user_id, s)}
                       />

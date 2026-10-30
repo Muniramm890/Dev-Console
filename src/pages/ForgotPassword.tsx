@@ -107,7 +107,7 @@ export const ForgotPassword = ({ onBackToLogin }) => {
 
   const handleResetPassword = async (e) => {
     e?.preventDefault();
-    if (newPassword.length < 6) return setError("Password must be at least 6 characters.");
+    if (newPassword.length < 8) return setError("Password must be at least 8 characters, with letters and numbers.");
     setError("");
     setLoading(true);
     try {
@@ -227,7 +227,7 @@ export const ForgotPassword = ({ onBackToLogin }) => {
                 type={showPass ? "text" : "password"}
                 style={{ ...premiumInputStyle, padding: "12px 44px 12px 16px" }}
                 onFocus={handleFocus} onBlur={handleBlur}
-                placeholder="Min. 6 characters"
+                placeholder="Min. 8 characters"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
@@ -236,7 +236,7 @@ export const ForgotPassword = ({ onBackToLogin }) => {
               </button>
             </div>
           </div>
-          <button type="submit" disabled={loading || newPassword.length < 6} style={{ width: "100%", background: loading ? C.green : C.primary, color: "white", border: "none", borderRadius: 10, padding: "14px 20px", fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading || newPassword.length < 6 ? 0.7 : 1, transition: "0.2s" }}>
+          <button type="submit" disabled={loading || newPassword.length < 8} style={{ width: "100%", background: loading ? C.green : C.primary, color: "white", border: "none", borderRadius: 10, padding: "14px 20px", fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading || newPassword.length < 8 ? 0.7 : 1, transition: "0.2s" }}>
             {loading ? "Updating..." : "Update Password"}
           </button>
         </form>

@@ -1,7 +1,7 @@
 // FILE: teacher-app/src/layout/SchoolERP.tsx
 // Source: admin App.tsx -> SchoolERP [23356-23689]
 // @ts-nocheck
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { apiRequest } from "../api/client";
 import { Sidebar } from "../components/layout/Sidebar";
@@ -16,24 +16,25 @@ import { useSession } from "../contexts/SessionContext";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { setNativeTheme, registerPush } from "../native";
-import { ArrangementModule } from "../modules/arrangement/ArrangementModule";
-import { AttendanceModule } from "../modules/attendance/AttendanceModule";
-import { AuditLogModule } from "../modules/auditlogs/AuditLogModule";
-import { CommHubModule } from "../modules/commhub/CommHubModule";
+const ArrangementModule = lazy(() => import("../modules/arrangement/ArrangementModule").then((m) => ({ default: m.ArrangementModule })));
+const AttendanceModule = lazy(() => import("../modules/attendance/AttendanceModule").then((m) => ({ default: m.AttendanceModule })));
+const CalendarModule = lazy(() => import("../modules/calendar/CalendarModule").then((m) => ({ default: m.CalendarModule })));
+const AuditLogModule = lazy(() => import("../modules/auditlogs/AuditLogModule").then((m) => ({ default: m.AuditLogModule })));
+const CommHubModule = lazy(() => import("../modules/commhub/CommHubModule").then((m) => ({ default: m.CommHubModule })));
 import { DashboardModule } from "../modules/dashboard/DashboardModule";
-import { ExamManagementModule } from "../modules/exams/ExamManagementModule";
-import { FeesModule } from "../modules/fees/FeesModule";
-import { HomeworkModule } from "../modules/homework/HomeworkModule";
-import { PayrollModule } from "../modules/payroll/PayrollModule";
-import { PromotionModule } from "../modules/promotion/PromotionModule";
-import { ResultsModule } from "../modules/results/ResultsModule";
-import { SetupModule } from "../modules/setup/SetupModule";
-import { StudentsModule } from "../modules/students/StudentsModule";
-import { TeachersModule } from "../modules/teachers/TeachersModule";
-import { TestsModule } from "../modules/tests/TestsModule";
-import { TimetableModule } from "../modules/timetable/TimetableModule";
-import { TransportModule } from "../modules/transport/TransportModule";
-import { UserManagementModule } from "../modules/usermanagement/UserManagementModule";
+const ExamManagementModule = lazy(() => import("../modules/exams/ExamManagementModule").then((m) => ({ default: m.ExamManagementModule })));
+const FeesModule = lazy(() => import("../modules/fees/FeesModule").then((m) => ({ default: m.FeesModule })));
+const HomeworkModule = lazy(() => import("../modules/homework/HomeworkModule").then((m) => ({ default: m.HomeworkModule })));
+const PayrollModule = lazy(() => import("../modules/payroll/PayrollModule").then((m) => ({ default: m.PayrollModule })));
+const PromotionModule = lazy(() => import("../modules/promotion/PromotionModule").then((m) => ({ default: m.PromotionModule })));
+const ResultsModule = lazy(() => import("../modules/results/ResultsModule").then((m) => ({ default: m.ResultsModule })));
+const SetupModule = lazy(() => import("../modules/setup/SetupModule").then((m) => ({ default: m.SetupModule })));
+const StudentsModule = lazy(() => import("../modules/students/StudentsModule").then((m) => ({ default: m.StudentsModule })));
+const TeachersModule = lazy(() => import("../modules/teachers/TeachersModule").then((m) => ({ default: m.TeachersModule })));
+const TestsModule = lazy(() => import("../modules/tests/TestsModule").then((m) => ({ default: m.TestsModule })));
+const TimetableModule = lazy(() => import("../modules/timetable/TimetableModule").then((m) => ({ default: m.TimetableModule })));
+const TransportModule = lazy(() => import("../modules/transport/TransportModule").then((m) => ({ default: m.TransportModule })));
+const UserManagementModule = lazy(() => import("../modules/usermanagement/UserManagementModule").then((m) => ({ default: m.UserManagementModule })));
 import { C, SCHOOL_CONFIG, applyTheme, getSavedTheme, injectStyles } from "../theme/theme";
 
 // ═══════════════════════════════════════════════════════════════
@@ -169,6 +170,8 @@ export const SchoolERP = () => {
           return <CommHubModule />;
       case "attendance":
         return <AttendanceModule />;
+      case "calendar":
+        return <CalendarModule />;
       case "arrangement":
           return <ArrangementModule school={school} />;
       case "exams":
@@ -388,7 +391,9 @@ export const SchoolERP = () => {
          {/* Module Area */}
          <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
           <ErrorBoundary label={activeModule} resetKeys={[activeModule, academicYearId]}>
-            {renderModule()}
+            <Suspense fallback={<div className="pulse" style={{ padding: 40, textAlign: "center", color: C.primary, fontSize: 13, fontWeight: 600 }}>Loading…</div>}>
+              {renderModule()}
+            </Suspense>
           </ErrorBoundary>
         </div>
       </div>

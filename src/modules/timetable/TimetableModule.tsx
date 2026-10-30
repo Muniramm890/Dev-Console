@@ -6,10 +6,11 @@ import { SectionHeader } from "../../components/ui/SectionHeader";
 import { useSession } from "../../contexts/SessionContext";
 import { BuildTimetableTab } from "./BuildTimetableTab";
 import { TeacherWeeklyViewTab } from "./TeacherWeeklyViewTab";
+import { DailyRoutineTab } from "./DailyRoutineTab";
 import { C } from "../../theme/theme";
 
 export const TimetableModule = () => {
-  const [tab, setTab] = useState("build"); // 'build' | 'teacherview'
+  const [tab, setTab] = useState("build"); // 'build' | 'teacherview' | 'routine'
   const { currentYear } = useSession(); // 🔴 topbar ka global session hi use hota hai
   const academicYearId = currentYear?.id || "";
 
@@ -27,6 +28,7 @@ export const TimetableModule = () => {
       {[
           { id: "build", label: "Class-wise Timetable" },
           { id: "teacherview", label: "Teacher-wise View" },
+          { id: "routine", label: "Daily Routine" },
         ].map((t) => (
           <button
             key={t.id}
@@ -38,7 +40,9 @@ export const TimetableModule = () => {
         ))}
       </div>
 
-      {!academicYearId ? (
+      {tab === "routine" ? (
+        <DailyRoutineTab />
+      ) : !academicYearId ? (
         <div
           className="card"
           style={{ padding: 40, textAlign: "center", color: C.textMuted }}

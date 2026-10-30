@@ -47,12 +47,12 @@ const initialsOf = (name = "") => {
 const strengthOf = (pw) => {
   if (!pw) return { score: 0, label: "", color: C.border };
   let s = 0;
-  if (pw.length >= 6) s++;
+  if (pw.length >= 8) s++;
   if (pw.length >= 10) s++;
   if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
   if (/\d/.test(pw)) s++;
   if (/[^A-Za-z0-9]/.test(pw)) s++;
-  if (pw.length < 6) return { score: 1, label: "Too short", color: C.red };
+  if (pw.length < 8) return { score: 1, label: "Too short", color: C.red };
   const score = Math.min(4, Math.max(1, s - 0));
   return [
     null,
@@ -158,8 +158,8 @@ export const ProfileModal = ({ open, onClose, onLogout, themeMode, onToggleTheme
       dialogAlert("Please fill in both current and new password.", "Missing Info");
       return;
     }
-    if (pwForm.newPassword.length < 6) {
-      dialogAlert("New password must be at least 6 characters.", "Too Short");
+    if (pwForm.newPassword.length < 8) {
+      dialogAlert("New password must be at least 8 characters, with letters and numbers.", "Too Short");
       return;
     }
     if (pwForm.newPassword !== pwForm.confirmPassword) {
@@ -203,7 +203,7 @@ export const ProfileModal = ({ open, onClose, onLogout, themeMode, onToggleTheme
   const pwMatch = pwForm.confirmPassword && pwForm.newPassword === pwForm.confirmPassword;
   const pwMismatch = pwForm.confirmPassword && pwForm.newPassword !== pwForm.confirmPassword;
   const checks = [
-    { ok: pwForm.newPassword.length >= 6, text: "At least 6 characters (required)" },
+    { ok: pwForm.newPassword.length >= 8, text: "At least 8 characters with letters and numbers (required)" },
     { ok: /[a-z]/.test(pwForm.newPassword) && /[A-Z]/.test(pwForm.newPassword), text: "Upper & lower case letters" },
     { ok: /\d/.test(pwForm.newPassword), text: "At least one number" },
     { ok: /[^A-Za-z0-9]/.test(pwForm.newPassword), text: "At least one symbol (!@#$…)" },
@@ -526,7 +526,7 @@ export const ProfileModal = ({ open, onClose, onLogout, themeMode, onToggleTheme
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: 12.5, color: C.textMuted }}>New password must be at least 6 characters long.</div>
+                  <div style={{ fontSize: 12.5, color: C.textMuted }}>New password must be at least 8 characters, with letters and numbers long.</div>
                   <button className="pf-btn primary" onClick={handleChangePassword}
                     disabled={savingPw || !pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword}>
                     {savingPw ? "Updating…" : "Update Password"}

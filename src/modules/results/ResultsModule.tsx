@@ -1,12 +1,14 @@
 // FILE: teacher-app/src/modules/results/ResultsModule.tsx
 // Source: admin App.tsx -> ResultsModule [19640-19771]
 // @ts-nocheck
+import { useLocation as useLoc } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
 import { Icon } from "../../components/ui/Icon";
 import { useSession } from "../../contexts/SessionContext";
 import { QuickMarksModal } from "./QuickMarksModal";
 import { ResultsClassWiseTab } from "./ResultsClassWiseTab";
+import { ResultsMarksRegisterTab } from "./ResultsMarksRegisterTab";
 import { ResultsOverviewTab } from "./ResultsOverviewTab";
 import { ResultsSectionWiseTab } from "./ResultsSectionWiseTab";
 import { ResultsStudentReportTab } from "./ResultsStudentReportTab";
@@ -23,7 +25,8 @@ export const ResultsModule = ({ school }) => {
   const { currentYear } = useSession();
   const [examGroups, setExamGroups] = useState([]);
   const [examGroupId, setExamGroupId] = useState("");
-  const [tab, setTab] = useState("overview");
+  const deepQs = new URLSearchParams(useLoc().search); // dashboard deep link: /results?exam=ID&tab=student
+  const [tab, setTab] = useState(() => (["student", "register"].includes(deepQs.get("tab")) ? deepQs.get("tab") : "overview"));
   const [computing, setComputing] = useState(false);
   const [showMarksModal, setShowMarksModal] = useState(false); // 🔴 New State
 
@@ -37,7 +40,7 @@ export const ResultsModule = ({ school }) => {
         const list = Array.isArray(res?.data) ? res.data : [];
         setExamGroups(list);
         // session badalne par purana exam selection invalid ho sakta hai
-        setExamGroupId((prev) => (prev && list.some((e) => e.id === prev) ? prev : list[0]?.id || ""));
+        setExamGroupId((prev) => (prev && list.some((e) => e.id === prev) ? prev : list.some((e) => e.id === deepQs.get("exam")) ? deepQs.get("exam") : list[0]?.id || ""));
       } catch (e) { console.error(e); }
     })();
     return () => { cancelled = true; };
@@ -146,6 +149,7 @@ export const ResultsModule = ({ school }) => {
           {tab === "subjectwise" && <ResultsSubjectWiseTab examGroupId={examGroupId} />}
           {tab === "teacherwise" && <ResultsTeacherWiseTab examGroupId={examGroupId} />}
           {tab === "toppers" && <ResultsToppersTab examGroupId={examGroupId} />}
+          {tab === "register" && <ResultsMarksRegisterTab examGroupId={examGroupId} />}
           {tab === "student" && <ResultsStudentReportTab examGroupId={examGroupId} examName={selectedExam?.name} school={school} />}
         </>
       )}

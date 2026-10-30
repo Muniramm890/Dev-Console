@@ -173,7 +173,7 @@ export const AuditLogModule = () => {
             ) : logs.length === 0 ? (
               <div style={{ padding: 50, textAlign: "center", color: C.textMuted }}>No logs match these filters.</div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              <div className="scroll-x">
                 <table className="table">
                   <thead>
                     <tr><th>Action</th><th>User</th><th>Role</th><th>Details</th><th>Endpoint</th><th>When</th></tr>

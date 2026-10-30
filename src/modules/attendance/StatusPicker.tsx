@@ -2,7 +2,7 @@
 // Source: admin App.tsx -> StatusPicker [11564-11592]
 // @ts-nocheck
 import { C } from "../../theme/theme";
-import { STATUS_KEYS, STATUS_META } from "../../utils/status";
+import { STATUS_KEYS, STATUS_META, STAFF_STATUS_KEYS, STAFF_STATUS_META } from "../../utils/status";
 
 // ═══════════════════════════════════════════════════════════════
 // MODULE: ATTENDANCE
@@ -18,11 +18,11 @@ import { STATUS_KEYS, STATUS_META } from "../../utils/status";
 // ═══════════════════════════════════════════════════════════════
 
 // Small segmented control used in every "mark" row
-export const StatusPicker = ({ value, onChange, size = "md" }) => (
-  <div style={{ display: "flex", gap: 4 }}>
-    {STATUS_KEYS.map((s) => {
+export const StatusPicker = ({ value, onChange, size = "md", staff = false }) => (
+  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+    {(staff ? STAFF_STATUS_KEYS : STATUS_KEYS).map((s) => {
       const active = value === s;
-      const meta = STATUS_META[s];
+      const meta = (staff ? STAFF_STATUS_META : STATUS_META)[s];
       return (
         <button
           key={s}

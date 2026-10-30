@@ -86,26 +86,35 @@ export function computePayslip({ staff, attendanceRows, paidCodeSet, monthYear }
   };
 }
 
-// Recompute a payslip after admin overrides LOP days and/or adds a bonus
+// Recompute a payslip after admin overrides LOP days and/or adds a bonus.
+// Same integer-paise rounding as the server (the server recomputes on save anyway; this is only the live preview).
 export function applyPayslipOverride(base, override) {
-  const effectiveLop = override.manual_lop_days !== "" && override.manual_lop_days !== null && override.manual_lop_days !== undefined
-    ? Number(override.manual_lop_days)
-    : base.auto_lop_days;
-
-  const lopDeduction = +(base.per_day_rate * effectiveLop).toFixed(2);
-  const totalDeduction = +(lopDeduction + base.pf_deduction + base.pt_deduction + base.other_deduction).toFixed(2);
+  const p = (v) => Math.round((Number(v) || 0) * 100);
+  const hasLop = override.manual_lop_days !== "" && override.manual_lop_days !== null && override.manual_lop_days !== undefined;
+  const effectiveLop = hasLop ? Number(override.manual_lop_days) : base.auto_lop_days;
   const bonus = Number(override.bonus_amount) || 0;
-  const netPay = +(base.gross_salary - totalDeduction + bonus).toFixed(2);
-  const isAdjusted = effectiveLop !== base.auto_lop_days || bonus !== 0;
+  const grossP = p(base.gross_salary);
+  const lopDedP = Math.round((grossP * Math.round(effectiveLop * 2)) / (2 * base.total_days));
+  const baseDedP = lopDedP + p(base.pf_deduction) + p(base.pt_deduction) + p(base.other_deduction);
+  const before = grossP + p(bonus) + p(base.arrears_amount) - baseDedP;
+  const recoveryP = Math.min(p(base.recovery_amount) + p(base.recovery_pending), Math.max(0, before));
+  const isAdjusted = effectiveLop !== base.auto_lop_days || bonus > 0;
+  const errors = [];
+  if (!Number.isFinite(effectiveLop) || effectiveLop < 0 || effectiveLop > base.total_days) errors.push(`LOP days must be between 0 and ${base.total_days}`);
+  if (bonus < 0) errors.push("Bonus must be 0 or more");
+  if (before < 0) errors.push("Net pay would be negative");
+  if (isAdjusted && !String(override.adjustment_note || "").trim()) errors.push("Reason required");
 
   return {
     ...base,
     lop_days: effectiveLop,
-    lop_deduction: lopDeduction,
-    total_deduction: totalDeduction,
+    lop_deduction: lopDedP / 100,
     bonus_amount: bonus,
-    net_pay: netPay,
+    recovery_amount: recoveryP / 100,
+    total_deduction: (baseDedP + recoveryP) / 100,
+    net_pay: (before - recoveryP) / 100,
     is_manually_adjusted: isAdjusted,
     adjustment_note: override.adjustment_note || "",
+    errors,
   };
 }

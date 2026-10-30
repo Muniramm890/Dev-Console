@@ -2,6 +2,9 @@
 // Source: admin App.tsx -> DashboardModule [1944-2584]
 // @ts-nocheck
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { TodayPanel } from "./TodayPanel";
+import { DocumentsRow } from "./DocumentsRow";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { apiRequest } from "../../api/client";
 import { Avatar } from "../../components/ui/Avatar";
@@ -17,6 +20,8 @@ import { timeAgo } from "../../utils/date";
   // MODULE: DASHBOARD
   // ═══════════════════════════════════════════════════════════════
 export const DashboardModule = ({ school }) => {
+  const navigate = useNavigate();
+  const [tick] = useState(0);
   const { students: STUDENTS, teachers: TEACHERS, error: dataError } = useData(); // 🔴 Override mock data with real data
   const [grades, setGrades] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
@@ -37,7 +42,7 @@ export const DashboardModule = ({ school }) => {
         console.error("Failed to load grades for dashboard", e);
       }
     })();
-  }, []);
+  }, [tick]);
 
   useEffect(() => {
          (async () => {
@@ -52,7 +57,7 @@ export const DashboardModule = ({ school }) => {
              setActivityLoading(false);
            }
          })();
-       }, []);
+       }, [tick]);
 
      useEffect(() => {
         (async () => {
@@ -69,7 +74,7 @@ export const DashboardModule = ({ school }) => {
             setStaffLoading(false);
           }
         })();
-      }, []);
+      }, [tick]);
 
 
       
@@ -87,7 +92,7 @@ export const DashboardModule = ({ school }) => {
             setFeeLoading(false);
           }
         })();
-      }, []);
+      }, [tick]);
 
       // 🔴 Real KPI trends (vs last month) — replaces hardcoded 3.2 / 0 / 5.8 / -2.1
       const [kpiTrends, setKpiTrends] = useState(null);
@@ -101,7 +106,7 @@ export const DashboardModule = ({ school }) => {
             setKpiTrends(null);
           }
         })();
-      }, []);
+      }, [tick]);
 
       // [teacher-app] Real Quick Stats (/dashboard/quick-stats) — was hardcoded "87.3%" + mock CLASSES/SECTIONS/CLASS_SUBJECTS
       const [quickStats, setQuickStats] = useState(null);
@@ -115,7 +120,7 @@ export const DashboardModule = ({ school }) => {
             setQuickStats(null);
           }
         })();
-      }, []);
+      }, [tick]);
 
       // 🔴 Real 7-day attendance trend (replaces Math.random())
       const [realAttendanceTrend, setRealAttendanceTrend] = useState([]);
@@ -134,12 +139,12 @@ export const DashboardModule = ({ school }) => {
             setRealAttendanceTrend([]);
           }
         })();
-      }, []);
+      }, [tick]);
 
 
   const totalStudents = STUDENTS.length;
   const totalTeachers = staffAttendance.length || TEACHERS.length;
-  const presentToday = staffAttendance.filter((t) => t.status === "P" || t.status === "OD").length;
+  const presentToday = staffAttendance.filter((t) => t.status === "P" || t.status === "OD" || t.status === "HD").length;
   const totalFeeCollected = (feeOverview?.summary?.total_paid_paise || 0) / 100;
   const totalFeePending = (feeOverview?.summary?.total_pending_paise || 0) / 100;
 
@@ -213,7 +218,7 @@ export const DashboardModule = ({ school }) => {
             {school.address}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ textAlign: "center" }}>
             <div
               className="syne"
@@ -243,6 +248,7 @@ export const DashboardModule = ({ school }) => {
       >
         <KpiCard
           label="Total Students"
+          onClick={() => navigate("/students")}
           value={totalStudents}
           sub={`Across ${quickStats?.total_classes ?? grades.length} classes`}
           icon="students"
@@ -251,6 +257,7 @@ export const DashboardModule = ({ school }) => {
         />
         <KpiCard
           label="Teaching Staff"
+          onClick={() => navigate("/teachers")}
           value={totalTeachers}
           sub={`${presentToday} present today`}
           icon="teachers"
@@ -259,6 +266,7 @@ export const DashboardModule = ({ school }) => {
         />
         <KpiCard
           label="Fee Collected"
+          onClick={() => navigate("/fees?tab=collection")}
           value={`₹${(totalFeeCollected / 100000).toFixed(1)}L`}
           sub="This academic year"
           icon="fee"
@@ -267,6 +275,7 @@ export const DashboardModule = ({ school }) => {
         />
         <KpiCard
           label="Fee Pending"
+          onClick={() => navigate("/fees?tab=ledger&status=pending")}
           value={`₹${(totalFeePending / 100000).toFixed(1)}L`}
           sub={`${feeOverview?.summary?.pending_count || 0} students`}
           icon="warning"
@@ -382,6 +391,13 @@ export const DashboardModule = ({ school }) => {
           
         </div>
       </div>
+
+      <DocumentsRow tick={tick} />
+
+      <TodayPanel
+        tick={tick}
+        feeDues={Number(feeOverview?.summary?.pending_count || 0) + Number(feeOverview?.summary?.partial_count || 0)}
+      />
 
       <div
         className="grid-2"

@@ -429,7 +429,7 @@ export const HomeworkModule = ({ school }) => {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {activeAttachments.map((f) => (
-              <DocLink key={f.id} doc={{ url: f.file_url, name: f.file_name }}
+              <DocLink key={f.id} doc={{ url: f.file_url, name: f.file_name, mime: (f.mime_type || f.content_type || (String(f.file_type || "").toLowerCase() === "pdf" ? "application/pdf" : undefined)) }}
                 style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.surfaceAlt, borderRadius: 10, border: `1px solid ${C.border}`, textDecoration: "none", color: C.text }}>
                 <Icon name="file" size={16} color={C.primary} />
                 <span style={{ fontSize: 13, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.file_name}</span>

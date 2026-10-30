@@ -66,7 +66,7 @@ export const TransportTripsTab = () => {
   return (
     <div>
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
+        <div className="scroll-x">
           <table className="table">
             <thead><tr><th>Route</th><th>Shift</th><th>Vehicle</th><th>Driver</th><th>Conductor</th><th style={{ textAlign: "center" }}>Actions</th></tr></thead>
             <tbody>

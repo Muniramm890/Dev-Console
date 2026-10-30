@@ -1,4 +1,5 @@
 // FILE: teacher-app/src/modules/tests/TestsModule.tsx
+import JSON5 from "json5";
 // Source: admin App.tsx -> TestsModule [20149-21127]
 // @ts-nocheck
 import React, { useEffect, useState } from "react";
@@ -65,10 +66,10 @@ import { C } from "../../theme/theme";
         if (!dMatch) throw new Error("Missing 'const testDetails = {...}'");
         if (!qMatch) throw new Error("Missing 'const mockQuestions = [...]'");
   
-        const getMeta = new Function("return " + dMatch[1]);
-        const getQ    = new Function("return " + qMatch[1]);
-        const meta    = getMeta();
-        let questions = getQ();
+        // pasted code is read as DATA (JSON5: unquoted keys, single quotes, trailing commas) - it is never executed
+        const lit = (src) => JSON5.parse(src.replace(/`([^`$\\]*)`/g, (_m, t) => JSON.stringify(t)));
+        const meta    = lit(dMatch[1]);
+        let questions = lit(qMatch[1]);
   
         // Smart Parser: Auto-detect missing types
         questions = questions.map((q, idx) => {
@@ -675,7 +676,7 @@ import { C } from "../../theme/theme";
             </div>
 
             {/* Quick Stats Grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
+            <div className="grid-auto-kpi" style={{ marginBottom: 24 }}>
                <div style={{ background: `${C.green}11`, border: `1px solid ${C.green}33`, padding: 16, borderRadius: 16, textAlign: "center" }}>
                  <div style={{ fontSize: 28, fontWeight: 900, color: C.green }}>{activeReport.student.correct}</div>
                  <div style={{ fontSize: 10, fontWeight: 800, color: C.green, textTransform: "uppercase", marginTop: 4 }}>Correct</div>
@@ -808,7 +809,7 @@ import { C } from "../../theme/theme";
                  <p style={{ color: "#64748b", fontSize: 12, fontWeight: 800, marginTop: 16, textTransform: "uppercase", letterSpacing: "2px" }}>No Surveillance Data Found</p>
                </div>
             ) : (
-               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, maxHeight: 500, overflowY: "auto", paddingRight: 8 }} className="custom-scroll">
+               <div className="grid-auto-thumb custom-scroll" style={{ maxHeight: 500, overflowY: "auto", paddingRight: 8 }}>
                  {proctorImages.map((b64, i) => (
                     <div key={i} style={{ position: "relative", borderRadius: 16, overflow: "hidden", border: "1px solid #1e293b", aspectRatio: "16/9", background: "black" }}>
                        <img src={b64} alt={`Proctor ${i+1}`} style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.7, transition: "transform 0.5s, opacity 0.5s" }} onMouseEnter={e => {e.currentTarget.style.transform="scale(1.1)"; e.currentTarget.style.opacity="1"}} onMouseLeave={e => {e.currentTarget.style.transform="scale(1)"; e.currentTarget.style.opacity="0.7"}} />
@@ -917,10 +918,10 @@ import { C } from "../../theme/theme";
 
           {/* STEP 3: Review & Edit (Split Screen) */}
           {wizardStep === 3 && (
-            <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+            <div className="split-pane">
               
               {/* Left Panel: Meta Settings */}
-              <div style={{ width: 350, background: C.surface, borderRight: `1px solid ${C.border}`, overflowY: "auto", padding: 24 }} className="custom-scroll">
+              <div className="custom-scroll split-pane-side" style={{ background: C.surface, borderRight: `1px solid ${C.border}`, overflowY: "auto", padding: 24 }}>
                 <h3 style={{ fontSize: 14, fontWeight: 800, color: C.text, textTransform: "uppercase", marginBottom: 20, letterSpacing: "1px" }}>Metadata Setup</h3>
                 
                 <FormRow label="Test ID / Code (Unique)"><input className="input" value={testMeta.testId} onChange={e => setTestMeta({...testMeta, testId: e.target.value})} style={{ fontFamily: "monospace", color: C.yellow, background: "#0f172a" }}/></FormRow>
@@ -940,7 +941,7 @@ import { C } from "../../theme/theme";
               </div>
 
                             {/* Right Panel: Question Editor List */}
-              <div style={{ flex: 1, background: C.bg, overflowY: "auto", padding: "24px 40px", position: "relative" }} className="custom-scroll">
+              <div className="custom-scroll split-pane-main" style={{ flex: 1, background: C.bg, overflowY: "auto", padding: "24px 40px", position: "relative" }}>
                 
                 {/* 🔴 NEW: Premium Blur Overlay When Uploading */}
                 {saving && (

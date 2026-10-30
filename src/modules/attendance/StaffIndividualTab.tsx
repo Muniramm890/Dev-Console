@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
 import { C } from "../../theme/theme";
 import { daysAgoISO, todayISO } from "../../utils/date";
-import { STATUS_KEYS, STATUS_META } from "../../utils/status";
+import { STAFF_STATUS_KEYS as STATUS_KEYS, STAFF_STATUS_META as STATUS_META } from "../../utils/status";
 
 // ═══════════════════════════════════════════════════════════════
 // TEACHERS — TAB 3: INDIVIDUAL TEACHER

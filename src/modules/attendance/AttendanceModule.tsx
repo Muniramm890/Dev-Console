@@ -1,12 +1,15 @@
 // FILE: teacher-app/src/modules/attendance/AttendanceModule.tsx
 // Source: admin App.tsx -> AttendanceModule [11594-11723]
 // @ts-nocheck
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useLocation as useLoc } from "react-router-dom";
 import { Icon } from "../../components/ui/Icon";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { StaffAnalysisTab } from "./StaffAnalysisTab";
 import { StaffIndividualTab } from "./StaffIndividualTab";
 import { StaffMarkTab } from "./StaffMarkTab";
+import { StaffRegisterTab } from "./StaffRegisterTab";
+import { StudentRegisterTab } from "./StudentRegisterTab";
 import { StudentClassAnalysisTab } from "./StudentClassAnalysisTab";
 import { StudentIndividualTab } from "./StudentIndividualTab";
 import { StudentMarkTab } from "./StudentMarkTab";
@@ -15,10 +18,13 @@ import { C } from "../../theme/theme";
 
 export const AttendanceModule = () => {
   // ── Top-level switch ──
-  const [mode, setMode] = useState("students"); // 'students' | 'teachers'
-  const [tab, setTab] = useState("overview"); // 'overview' is default; 'mark' stays hidden until opened
+  const deepQs = new URLSearchParams(useLoc().search); // dashboard deep link: /attendance?mode=teachers&tab=register
+  const [mode, setMode] = useState(() => (deepQs.get("mode") === "teachers" ? "teachers" : "students")); // 'students' | 'teachers'
+  const [tab, setTab] = useState(() => (deepQs.get("tab") === "register" ? "register" : "overview")); // 'overview' is default; 'mark' stays hidden until opened
+  const modeInit = useRef(true);
 
   useEffect(() => {
+    if (modeInit.current) { modeInit.current = false; return; } // keep the deep-linked tab on first load
     setTab("overview");
   }, [mode]);
 
@@ -27,10 +33,12 @@ export const AttendanceModule = () => {
       { id: "overview", label: "Student Overview" },
       { id: "class", label: "Class Analysis" },
       { id: "individual", label: "Individual Student" },
+      { id: "register", label: "Monthly Register" },
     ],
     teachers: [
       { id: "overview", label: "Staff Overview" },
       { id: "individual", label: "Individual Teacher" },
+      { id: "register", label: "Monthly Register" },
     ],
   };
 
@@ -131,12 +139,14 @@ export const AttendanceModule = () => {
           {tab === "overview" && <StudentSchoolOverviewTab />}
           {tab === "class" && <StudentClassAnalysisTab />}
           {tab === "individual" && <StudentIndividualTab />}
+          {tab === "register" && <StudentRegisterTab />}
           {tab === "mark" && <StudentMarkTab />}
         </>
       ) : (
         <>
           {tab === "overview" && <StaffAnalysisTab />}
           {tab === "individual" && <StaffIndividualTab />}
+          {tab === "register" && <StaffRegisterTab />}
           {tab === "mark" && <StaffMarkTab />}
         </>
       )}

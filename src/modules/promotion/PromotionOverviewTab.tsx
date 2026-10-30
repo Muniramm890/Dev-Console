@@ -1,86 +1,54 @@
-// FILE: teacher-app/src/modules/promotion/PromotionOverviewTab.tsx
-// Source: admin App.tsx -> PromotionOverviewTab [8799-8877]
 // @ts-nocheck
-import { useState } from "react";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Icon } from "../../components/ui/Icon";
 import { KpiCard } from "../../components/ui/KpiCard";
+import { SectionCard } from "../../components/ui/SectionCard";
 import { C } from "../../theme/theme";
+import { Chip, ProgressBar } from "./parts";
 
-export const PromotionOverviewTab = ({ overview, loading, totals, toYearId, onPromoteSection }) => {
-  const [gradeFilter, setGradeFilter] = useState("");
+export const PromotionOverviewTab = ({ overview, loading, totals, onPromoteSection }) => {
+  if (loading && !overview) return <div className="pulse" style={{ padding: 60, textAlign: "center", color: C.primary, fontWeight: 600 }}>Loading class list…</div>;
   const rows = overview?.by_grade_section || [];
-  const filteredRows = gradeFilter ? rows.filter((r) => r.grade_id === gradeFilter) : rows;
-  const grades = [...new Map(rows.map((r) => [r.grade_id, r.grade_name])).entries()];
+  if (!rows.length) return <div className="card"><EmptyState icon="students" title="No students in this session" sub="There are no enrolments in the selected From session, so there is nothing to promote." /></div>;
 
-  if (loading) return <div style={{ padding: 40, textAlign: "center", color: C.textMuted }}>Loading overview…</div>;
-  if (!overview) return <div style={{ padding: 40, textAlign: "center", color: C.textMuted }}>Select a session above.</div>;
+  const groups = [];
+  rows.forEach((r) => { let g = groups.find((x) => x.id === r.grade_id); if (!g) { g = { id: r.grade_id, name: r.grade_name, items: [] }; groups.push(g); } g.items.push(r); });
+  const left = totals.pending;
 
   return (
-    <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 24 }}>
-        <KpiCard label="Total Students" value={totals.total} icon="students" color={C.blue} />
-        <KpiCard label="Pending" value={totals.pending} icon="warning" color={C.orange || C.red} />
-        <KpiCard label="Promoted" value={totals.promoted} icon="arrow_right" color={C.green} />
-        <KpiCard label="Retained" value={totals.retained} icon="refresh" color={C.purple || C.blue} />
-        <KpiCard label="TC Issued" value={totals.tc} icon="file" color={C.red} />
-        <KpiCard label="Graduated" value={totals.graduated} icon="trophy" color={C.green} />
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))", gap: 14 }}>
+        <KpiCard label="Students" value={totals.total} sub={`${totals.processed} processed`} icon="students" color={C.primary} />
+        <KpiCard label="Still to process" value={totals.pending} sub={left ? "action needed" : "all done"} icon="clock" color={left ? C.yellow : C.green} />
+        <KpiCard label="Promoted" value={totals.promoted} sub={`${totals.retained} retained`} icon="check" color={C.green} />
+        <KpiCard label="Left school" value={totals.tc + totals.graduated} sub={`${totals.tc} TC / ${totals.graduated} graduated`} icon="file" color={C.red} />
       </div>
 
-      {!toYearId && (
-        <div style={{ padding: "10px 14px", background: `${C.orange || C.red}11`, border: `1px solid ${C.orange || C.red}33`, borderRadius: 10, marginBottom: 16, fontSize: 12.5, color: C.textMuted }}>
-          "To Session" is not selected — the promoted/retained/TC breakdown appears only after both sessions are selected. The grade-wise pending count is still shown below.
-        </div>
-      )}
-
-      <div style={{ marginBottom: 16 }}>
-        <select className="select" style={{ width: 220 }} value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)}>
-          <option value="">All Grades</option>
-          {grades.map(([id, name]) => (
-            <option key={id} value={id}>{name}</option>
+      <SectionCard icon="dashboard" title="Class-wise progress" sub="Open a class to promote, retain or issue TC. Nothing is overwritten: the old session keeps its record."
+        right={<div style={{ width: 200 }}><ProgressBar value={totals.processed} total={totals.total} /></div>}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {groups.map((g) => (
+            <div key={g.id}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>{g.name}</div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {g.items.map((s) => (
+                  <div key={s.section_id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 0", borderTop: `1px solid ${C.border}`, flexWrap: "wrap" }}>
+                    <div style={{ width: 120, fontWeight: 700 }}>{g.name} - {s.section_name}</div>
+                    <div style={{ flex: 1, minWidth: 160 }}><ProgressBar value={s.processed} total={s.total_students} color={s.pending ? C.yellow : C.green} /></div>
+                    <div style={{ display: "flex", gap: 6, minWidth: 190 }}>
+                      <Chip color={C.textMuted}>{s.total_students} students</Chip>
+                      {s.pending > 0 ? <Chip color={C.yellow}>{s.pending} left</Chip> : <Chip color={C.green}>Done</Chip>}
+                    </div>
+                    <button className={`btn ${s.pending > 0 ? "btn-primary" : "btn-ghost"}`} style={{ padding: "7px 14px", fontSize: 12.5 }} disabled={s.pending === 0} onClick={() => onPromoteSection(s.section_id)}>
+                      Process <Icon name="arrow_right" size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
-        </select>
-      </div>
-
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Grade</th>
-                <th>Section</th>
-                <th>Total</th>
-                <th>Processed</th>
-                <th>Pending</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.map((r) => (
-                <tr key={r.section_id}>
-                  <td>{r.grade_name}</td>
-                  <td>{r.section_name}</td>
-                  <td>{r.total_students}</td>
-                  <td>{r.processed}</td>
-                  <td>
-                    <span style={{ fontWeight: 700, color: r.pending > 0 ? (C.orange || C.red) : C.green }}>
-                      {r.pending}
-                    </span>
-                  </td>
-                  <td>
-                    {r.pending > 0 && (
-                      <button className="btn btn-ghost" style={{ fontSize: 12, padding: "5px 10px" }} onClick={onPromoteSection}>
-                        Promote This Section →
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {filteredRows.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: "center", padding: 30, color: C.textMuted }}>No sections found</td></tr>
-              )}
-            </tbody>
-          </table>
         </div>
-      </div>
+      </SectionCard>
     </div>
   );
 };

@@ -413,7 +413,7 @@ export const MarksEntryTab = ({ examId, examSections, examStatus }) => {
         ) : filteredRoster.length === 0 ? (
           <div style={{ padding: 30, textAlign: "center", color: C.textMuted }}>No students found.</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="scroll-x">
             <table className="table">
               <thead>
                 <tr>
@@ -497,8 +497,8 @@ export const MarksEntryTab = ({ examId, examSections, examStatus }) => {
             )}
 
             <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: C.text }}>Valid Data Preview</h4>
-            <div style={{ maxHeight: 300, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 8 }}>
-              <table className="table" style={{ fontSize: 11 }}>
+            <div className="scroll-x" style={{ maxHeight: 300, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 8 }}>
+              <table className="table" style={{ fontSize: 11, minWidth: 480 }}>
                 <thead>
                   <tr>
                     <th>Student Name</th>

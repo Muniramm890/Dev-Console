@@ -20,6 +20,7 @@ export const RESULT_TABS = [
   { id: "subjectwise", label: "Subject-wise" },
   { id: "teacherwise", label: "Teacher-wise" },
   { id: "toppers", label: "Toppers" },
+  { id: "register", label: "Marks Register" },
   { id: "student", label: "Student Report Card" },
 ];
 

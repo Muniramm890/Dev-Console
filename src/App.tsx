@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SplashScreen } from "./components/ui/SplashScreen";
 import { DriverTrackerScreen } from "./modules/driver/DriverTrackerScreen";
+import { TrackerBanner } from "./modules/driver/TrackerBanner";
 import { isNative } from "./native";
 import { apiRequest } from "./api/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -23,15 +24,16 @@ const MainLayout = () => {
   // Android app: is this login a bus DRIVER? -> tracker screen instead of the ERP (tracking runs 24x7 in a native service)
   const [driverChecked, setDriverChecked] = useState(!isNative);
   const [isDriver, setIsDriver] = useState(false);
+  const [trackingOn, setTrackingOn] = useState(false); // phone-location tracking is ON for this staff account
   const [driverTry, setDriverTry] = useState(0);
   useEffect(() => {
-    if (!isNative || !user) { setIsDriver(false); setDriverChecked(!isNative); return; }
+    if (!isNative || !user) { setIsDriver(false); setTrackingOn(false); setDriverChecked(!isNative); return; }
     let dead = false;
     setDriverChecked(false);
     apiRequest("/driver/me").then((r) => {
       if (dead) return;
       const d = !!(r?.data?.driver_mode ?? r?.data?.is_driver); // plain driver/conductor login on the bus phone -> tracker screen
-      setIsDriver(d); setDriverChecked(true);
+      setIsDriver(d); setTrackingOn(!!r?.data?.tracking_enabled); setDriverChecked(true);
       if (d) localStorage.setItem("erp_driver_mode", "1"); else localStorage.removeItem("erp_driver_mode");
     }).catch(() => { if (!dead) setTimeout(() => setDriverTry((n) => n + 1), 5000); }); // offline at start: retry
     return () => { dead = true; };
@@ -52,7 +54,7 @@ const MainLayout = () => {
   if (!user) { if (typeof window !== "undefined" && window.__DEV_CONSOLE__) { window.__DEV_CONSOLE__.exit("Session ended"); return null; } return <LoginPage />; } // Dev-Console: back to the console
   if (showSplash || (isNative && !driverChecked)) return <SplashScreen />;
   if (isNative && isDriver) return <DriverTrackerScreen />;
-  return <SchoolERP />;
+  return <>{<SchoolERP />}{isNative && trackingOn && <TrackerBanner />}</>;
 };
 
 // Naya Main App Export

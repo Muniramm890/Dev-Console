@@ -39,7 +39,7 @@ export const ResultsClassWiseTab = ({ examGroupId }) => {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <div style={{ overflowX: "auto" }}>
+      <div className="scroll-x">
       <table className="table" style={{ minWidth: 420 }}>
         <thead><tr><th>Class</th><th>Students</th><th>Pass %</th><th>Avg %</th></tr></thead>
         <tbody>

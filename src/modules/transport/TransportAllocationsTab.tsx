@@ -84,7 +84,7 @@ export const TransportAllocationsTab = () => {
         <button className="btn btn-primary" onClick={openNew}><Icon name="plus" size={13} /> Allocate Student</button>
       </div>
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
+        <div className="scroll-x">
           <table className="table">
             <thead><tr><th>Student</th><th>Admission No</th><th>Route</th><th>Stop</th><th>Bus</th><th>Fee/mo</th><th style={{ textAlign: "center" }}>Actions</th></tr></thead>
             <tbody>

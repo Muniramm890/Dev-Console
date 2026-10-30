@@ -136,9 +136,8 @@ export const DailyRoutineBuilder = ({ periods, onSaved }) => {
       ) : (
         <div style={{ marginBottom: 16 }}>
           {rows.map((r, i) => (
-            <div key={i} style={{
-              display: "grid", gridTemplateColumns: "40px 160px 1fr 130px 130px 40px", gap: 8,
-              alignItems: "center", padding: "8px 10px",
+            <div key={i} className="routine-row" style={{
+              padding: "8px 10px",
               background: r.is_break ? `${C.yellow}11` : C.surfaceAlt, borderRadius: 10, marginBottom: 6,
               border: `1px solid ${r.is_break ? C.yellow + "33" : C.border}`,
             }}>

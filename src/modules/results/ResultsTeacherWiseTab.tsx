@@ -52,7 +52,7 @@ export const ResultsTeacherWiseTab = ({ examGroupId }) => {
       </div>
       <div className="card">
         <h3 className="syne" style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Class-wise Breakdown</h3>
-        <div style={{ overflowX: "auto" }}>
+        <div className="scroll-x">
         <table className="table" style={{ minWidth: 640 }}>
           <thead><tr><th>Teacher</th><th>Subject</th><th>Class</th><th>Attempted</th><th>Pass %</th><th>Avg %</th></tr></thead>
           <tbody>

@@ -1,6 +1,7 @@
 // FILE: teacher-app/src/modules/exams/ExamManagementModule.tsx
 // Source: admin App.tsx -> ExamManagementModule [18337-18953]
 // @ts-nocheck
+import { useLocation as useLoc, useNavigate as useNav } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { apiRequest } from "../../api/client";
 import { FormGrid } from "../../components/ui/FormGrid";
@@ -75,6 +76,19 @@ export const ExamManagementModule = () => {
     setModal(null);
     loadAll();
   }, [currentYear?.id]); // eslint-disable-line
+
+  // Deep link from the dashboard: /exams?exam=ID&admit=1 opens that exam's workspace (and the Admit Cards popup once)
+  const deepLoc = useLoc();
+  const deepNav = useNav();
+  const [admitOnOpen, setAdmitOnOpen] = useState(false);
+  const deepDone = useRef(false);
+  useEffect(() => {
+    if (deepDone.current || !exams.length) return;
+    deepDone.current = true;
+    const qp = new URLSearchParams(deepLoc.search);
+    const ex = exams.find((x) => x.id === qp.get("exam"));
+    if (ex) { setWorkspaceExam(ex); setAdmitOnOpen(qp.get("admit") === "1"); deepNav(deepLoc.pathname, { replace: true }); }
+  }, [exams]); // eslint-disable-line
 
   
 
@@ -383,7 +397,9 @@ export const ExamManagementModule = () => {
     return (
       <ExamWorkspace
         exam={workspaceExam}
+        openAdmit={admitOnOpen}
         onBack={() => {
+          setAdmitOnOpen(false);
           setWorkspaceExam(null);
           loadAll();
         }}

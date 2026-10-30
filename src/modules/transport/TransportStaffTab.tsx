@@ -73,7 +73,7 @@ export const TransportStaffTab = () => {
         <button className="btn btn-primary" onClick={openNew}><Icon name="plus" size={13} /> Add Driver/Conductor</button>
       </div>
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
+        <div className="scroll-x">
           <table className="table">
             <thead><tr><th>Staff</th><th>Role</th><th>Phone</th><th>License No</th><th>License Expiry</th><th>Verified</th><th>Status</th><th style={{ textAlign: "center" }}>Actions</th></tr></thead>
             <tbody>

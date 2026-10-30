@@ -5,6 +5,13 @@
 export const Icon = ({ name, size = 16, color }) => {
   const icons = {
     // [teacher-app] added: mail, send, paperclip, message, megaphone (feather/lucide paths)
+    // [sidebar-icons] unique nav icons (feather/lucide paths): zap, schedule, swap, graduation, usercheck, audit
+    zap: "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+    schedule: "M3 3h18v18H3z M3 9h18 M3 15h18 M9 3v18 M15 3v18",
+    swap: "M17 1l4 4-4 4 M3 11V9a4 4 0 014-4h14 M7 23l-4-4 4-4 M21 13v2a4 4 0 01-4 4H3",
+    graduation: "M22 10L12 5 2 10l10 5 10-5z M6 12v5c3 3 9 3 12 0v-5 M22 10v6",
+    usercheck: "M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M8.5 11a4 4 0 100-8 4 4 0 000 8z M17 11l2 2 4-4",
+    audit: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",
     mail: "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
     clock: "M12 22a10 10 0 100-20 10 10 0 000 20zM12 6v6l4 2", // [teacher-app] added (Payroll 'Pending Disbursal' used it but it did not exist)
     send: "M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z",

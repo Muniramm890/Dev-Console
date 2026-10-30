@@ -7,6 +7,7 @@ import { useSession } from "../../contexts/SessionContext";
 import { FormGrid } from "../../components/ui/FormGrid";
 import { FormRow } from "../../components/ui/FormRow";
 import { Icon } from "../../components/ui/Icon";
+import { TableWrap } from "../../components/ui/TableWrap";
 import { Modal } from "../../components/ui/Modal";
 import { useDialog } from "../../contexts/DialogContext";
 import { paiseToRupee } from "./helpers";
@@ -139,7 +140,7 @@ export const TransportRoutesTab = () => {
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
               <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={openNewStop}><Icon name="plus" size={12} /> Add Stop</button>
             </div>
-            <div style={{ maxHeight: 320, overflowY: "auto" }}>
+            <TableWrap maxHeight={320}>
               <table className="table">
                 <thead><tr><th>#</th><th>Stop</th><th>Pickup</th><th>Drop</th><th>Fare/mo</th><th style={{ textAlign: "center" }}>Actions</th></tr></thead>
                 <tbody>
@@ -160,7 +161,7 @@ export const TransportRoutesTab = () => {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableWrap>
           </div>
         )}
       </Modal>

@@ -8,8 +8,10 @@ import { Avatar } from "../../components/ui/Avatar";
 import { FormGrid } from "../../components/ui/FormGrid";
 import { FormRow } from "../../components/ui/FormRow";
 import { Icon } from "../../components/ui/Icon";
+import { IdCardButton } from "../../components/ui/IdCardButton";
 import { Modal } from "../../components/ui/Modal";
 import { SectionHeader } from "../../components/ui/SectionHeader";
+import { IdCardBulkButton } from "../../components/ui/IdCardBulkButton";
 import { useSession } from "../../contexts/SessionContext";
 import { TeacherCard } from "./TeacherCard";
 import { FF } from "../../shared/subjects/FF";
@@ -213,7 +215,7 @@ export const TeachersModule = () => {
           experience_years: Number(form.experience_years) || 0,
         });
       } else {
-        await apiRequest("/teachers", "POST", {
+        const createdRes = await apiRequest("/teachers", "POST", {
           full_name: form.full_name.trim(),
           email: form.email.trim(),
           phone: form.phone ? String(form.phone).trim() : null,
@@ -228,6 +230,7 @@ export const TeachersModule = () => {
           date_of_birth: form.date_of_birth || null,
           avatar_url: form.avatar_url || null, // 🔴 Naye teacher ke liye avatar_url add kiya
         });
+        if (createdRes?.data?.temporaryPassword) alert(`Teacher created.\n\nLogin email: ${form.email.trim()}\nPassword: ${createdRes.data.temporaryPassword}\n\nShare this securely. It is shown only once.`);
       }
       setModal(null);
       await loadAll();
@@ -474,6 +477,7 @@ export const TeachersModule = () => {
     setBulkProgress({ done: 0, total: okIdx.length, failed: [] });
     setBulkDone(false);
     const failed = [];
+    const creds = []; // generated passwords, handed to the admin once as a file
     const created = new Set();
     const restored = new Set();
     let imported = 0;
@@ -494,6 +498,7 @@ export const TeachersModule = () => {
         d.summary.subjects_restored.forEach((n) => restored.add(n));
         d.results.forEach((r) => {
           if (!r.ok) failed.push({ ...rows[slice[r.idx]], _err: r.error });
+          else if (r.temp_password) creds.push([rows[slice[r.idx]].full_name || rows[slice[r.idx]].name, rows[slice[r.idx]].email, r.temp_password]);
         });
       } catch (e) {
         slice.forEach((i) => failed.push({ ...rows[i], _err: e.message }));
@@ -513,6 +518,12 @@ export const TeachersModule = () => {
       failed,
     });
     setBulkDone(true);
+    if (creds.length) {
+      const csv = "Name,Email,Temporary password\n" + creds.map((c) => c.map((x) => '"' + String(x ?? "").replace(/"/g, '""') + '"').join(",")).join("\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "teacher-login-passwords.csv"; a.click();
+      alert(`${creds.length} teacher(s) got a generated password. A file "teacher-login-passwords.csv" was downloaded - keep it safe and share the passwords securely.`);
+    }
     await loadAll();
   };
 
@@ -795,8 +806,8 @@ export const TeachersModule = () => {
               lineHeight: 1.7,
             }}
           >
-            Leave blank to use the default password (<b>teacher123</b>). Teacher
-            can change it after first login.
+            Leave blank to auto-generate a strong password (shown once after saving).
+            Or set your own: at least 8 characters with letters and numbers.
           </div>
           <FormRow label="Initial Password">
             <input
@@ -804,7 +815,7 @@ export const TeachersModule = () => {
               type="password"
               value={form.password}
               onChange={(e) => setF("password", e.target.value)}
-              placeholder="auto: teacher123"
+              placeholder="auto-generated if blank"
             />
           </FormRow>
         </div>
@@ -820,6 +831,7 @@ export const TeachersModule = () => {
         sub={`${statTotal} staff on record`}
         action={
           <div style={{ display: "flex", gap: 8 }}>
+            <IdCardBulkButton kind="teacher" />
             <button
               className="btn btn-ghost"
               onClick={() => {
@@ -1078,7 +1090,7 @@ export const TeachersModule = () => {
           className="card"
           style={{ padding: 0, overflow: "hidden", marginBottom: 16 }}
         >
-          <div style={{ overflowX: "auto" }}>
+          <div className="scroll-x">
             <table className="table">
               <thead>
                 <tr>
@@ -1375,14 +1387,7 @@ export const TeachersModule = () => {
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr 1fr",
-                    gap: 10,
-                    marginBottom: 14,
-                  }}
-                >
+                <div className="grid-auto-stat" style={{ gap: 10, marginBottom: 14 }}>
                   {[
                     ["Employee Code", t.employee_code || "—"],
                     [
@@ -1462,6 +1467,7 @@ export const TeachersModule = () => {
                   >
                     Close
                   </button>
+                  <IdCardButton kind="teacher" id={t.user_id} />
                   <button
                     className="btn btn-primary"
                     onClick={() => {
@@ -1581,7 +1587,7 @@ export const TeachersModule = () => {
               • <b>subjects</b>: separate several with <code>|</code> (e.g. <code>Mathematics|Physics</code>). Existing school subjects are reused — the teacher is simply added to them; only brand-new names are created.<br />
               • Blank subject → teacher is imported <b>unassigned</b> (not failed). You can pick a subject for them in the preview.<br />
               • <b>role</b>: teacher (default), librarian, accountant, management. Subjects apply to teachers only.<br />
-              • Salary / bank columns are optional — leave blank to set them later in Payroll. Blank <code>password</code> = <b>teacher123</b>.<br />
+              • Salary / bank columns are optional — leave blank to set them later in Payroll. Blank <code>password</code> = a strong password is generated and downloaded as a file after the import.<br />
               • <b>Email and phone must be unique across the whole system.</b>
             </div>
           </div>

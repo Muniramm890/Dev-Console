@@ -72,6 +72,11 @@ export const StaffDetail = ({ memberId, onBack, onChanged }) => {
     if (!(await dialogConfirm(`Change login email for ${d.full_name} to "${emailValue.trim()}"? They will need to use this new email to log in.`, "Confirm Email Change"))) return;
     await apiRequest(`/admin/users/${memberId}/email`, "PUT", { newEmail: emailValue.trim() }); await changed(); dialogAlert("Email updated successfully.", "Done");
   });
+  const toggleTracking = run("track", async () => {
+    const next = !d.track_location;
+    if (!(await dialogConfirm(next ? `Switch ON phone-location tracking for ${d.full_name}? Their Android app will ask for location permission and share the phone's location with the school.` : `Switch OFF tracking for ${d.full_name}?`, next ? "Switch on tracking" : "Switch off tracking"))) return;
+    await apiRequest(`/admin/users/${memberId}/tracking`, "PUT", { enabled: next }); await changed();
+  });
   const logoutAll = (stopTracking) => run("logout", async () => {
     if (!(await dialogConfirm(stopTracking ? `Log ${d.full_name} out of every device and stop bus tracking on the phone?` : `Log ${d.full_name} out of every device?`, "Log out everywhere"))) return;
     const r = await apiRequest("/security/revoke-all", "POST", { type: "staff", user_id: d.user_id, stop_tracking: !!stopTracking });
@@ -102,7 +107,7 @@ export const StaffDetail = ({ memberId, onBack, onChanged }) => {
               ["Employee code", d.employee_code], ["Department", d.department], ["Designation", d.designation],
               ["Joined school", fmtDate(d.join_date)], ["Account created", fmtDate(d.account_created_at)],
               ["Last login", d.last_login_at ? fmtDateTime(d.last_login_at) : "Never"],
-              ["Module access", isAdmin ? "Full access" : modCount ? `${modCount} module${modCount !== 1 ? "s" : ""}` : "No modules set"],
+              ["Location tracking", d.transport ? "On (driver/conductor)" : d.track_location ? "On" : "Off"], ["Module access", isAdmin ? "Full access" : modCount ? `${modCount} module${modCount !== 1 ? "s" : ""}` : "No modules set"],
             ]} />
           </SectionCard>
           {t && (
@@ -161,6 +166,10 @@ export const StaffDetail = ({ memberId, onBack, onChanged }) => {
           <ActionRow icon="mail" title="Login email" desc="The email this person uses to log in.">
             <input className="input" style={{ width: 240 }} value={emailValue} onChange={(e) => setEmailValue(e.target.value)} placeholder="name@example.com" />
             <button className="btn btn-primary" onClick={saveEmail} disabled={saving === "email" || emailValue.trim() === (d.email || "")}>{saving === "email" ? "Saving…" : "Update email"}</button>
+          </ActionRow>
+          <ActionRow icon="bus" title="Phone location tracking" desc={d.transport ? "Always on for drivers and conductors. Their phone location is the bus location." : "When ON, this person's Android app shares the phone's location with the school. You can see it in Transport → Live → Staff."}>
+            {d.transport ? <span className="badge badge-green">Always on</span>
+              : <button className={`btn ${d.track_location ? "btn-danger" : "btn-primary"}`} onClick={toggleTracking} disabled={saving === "track"}>{d.track_location ? "Switch off" : "Switch on"}</button>}
           </ActionRow>
           <ActionRow icon="logout" title="Log out of all devices" desc="Ends every active session. They can log in again with their password." tone="danger">
             <button className="btn btn-danger" onClick={() => logoutAll(false)} disabled={saving === "logout"}>Log out everywhere</button>

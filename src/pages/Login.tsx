@@ -3,12 +3,15 @@
 // @ts-nocheck
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { C } from "../theme/theme";
+import { C, LIGHT_SURFACE } from "../theme/theme";
 import { BrandLogo, Mark } from "../components/ui/BrandLogo";
 import { ForgotPassword } from "./ForgotPassword";
 
 export const LoginPage = () => {
   const { login } = useAuth();
+  // theme-aware brand text: "School" dark navy on light theme, near-white on dark theme
+  const isLight = C.bg === LIGHT_SURFACE.bg;
+  const brandInk = isLight ? "#14213D" : "#F4F6FB";
   // [teacher-app] removed: isSignup state (school signup is admin-only)
   const [isForgot, setIsForgot] = useState(false); 
   const [email, setEmail] = useState("");
@@ -93,7 +96,7 @@ export const LoginPage = () => {
                 letterSpacing: "0.5px",
               }}
             >
-              <span style={{ color: "#F4F6FB" }}>School</span>
+              <span style={{ color: brandInk }}>School</span>
               <span style={{ color: "#E8600A" }}>Office</span>
             </h1>
             <p
@@ -276,8 +279,8 @@ export const LoginPage = () => {
             gap: 10,
             padding: "10px 18px",
             borderRadius: 14,
-            background: "rgba(11,18,36,0.6)",
-            border: "1px solid rgba(255,255,255,0.06)",
+            background: isLight ? "rgba(255,255,255,0.85)" : "rgba(11,18,36,0.6)",
+            border: isLight ? "1px solid rgba(20,33,61,0.10)" : "1px solid rgba(255,255,255,0.06)",
             backdropFilter: "blur(6px)",
           }}
         >
@@ -292,14 +295,14 @@ export const LoginPage = () => {
                 lineHeight: 1,
               }}
             >
-              <span style={{ color: "#F4F6FB" }}>School</span>
+              <span style={{ color: brandInk }}>School</span>
               <span style={{ color: "#E8600A" }}>Office</span>
             </div>
             <div
               style={{
                 fontFamily: "'Inter', sans-serif",
                 fontSize: 9,
-                color: "#8891A8",
+                color: isLight ? "#6B7595" : "#8891A8",
                 marginTop: 2,
               }}
             >

@@ -38,7 +38,7 @@ export const ResultsSectionWiseTab = ({ examGroupId }) => {
   return (
     <div>
       <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ overflowX: "auto" }}>
+        <div className="scroll-x">
         <table className="table" style={{ minWidth: 560 }}>
           <thead><tr><th>Class</th><th>Section</th><th>Students</th><th>Pass %</th><th>Avg %</th><th></th></tr></thead>
           <tbody>
@@ -69,7 +69,7 @@ export const ResultsSectionWiseTab = ({ examGroupId }) => {
           {drillLoading ? (
             <div className="pulse" style={{ textAlign: "center", color: C.primary, padding: 20 }}>Loading…</div>
           ) : (
-            <div style={{ overflowX: "auto" }}>
+            <div className="scroll-x">
             <table className="table" style={{ minWidth: 620 + drillSubjects.length * 90 }}>
               <thead>
                 <tr>

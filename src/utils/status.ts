@@ -11,3 +11,14 @@ export const STATUS_META = {
 };
 
 export const STATUS_KEYS = ["P", "A", "L", "OD"];
+
+// Staff attendance has two more codes. Payroll rule: P / OD / PL = salary paid, HD = half salary, A / L = salary cut.
+export const STAFF_STATUS_KEYS = ["P", "A", "L", "PL", "HD", "OD"];
+export const STAFF_STATUS_META = {
+  P: STATUS_META.P,
+  A: STATUS_META.A,
+  L: { label: "Unpaid Leave", color: C.yellow },
+  PL: { label: "Paid Leave", color: C.purple },
+  HD: { label: "Half Day", color: "#F97316" },
+  OD: STATUS_META.OD,
+};

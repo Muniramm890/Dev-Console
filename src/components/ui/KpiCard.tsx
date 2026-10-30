@@ -3,9 +3,10 @@
 // @ts-nocheck
 import { Icon } from "./Icon";
 import { C } from "../../theme/theme";
+import { shortenKpi } from "../../utils/shortNum";
 
-export const KpiCard = ({ label, value, sub, icon, color, trend }) => (
-  <div className="kpi-card">
+export const KpiCard = ({ label, value, sub, icon, color, trend, onClick }) => (
+  <div className="kpi-card" onClick={onClick} role={onClick ? "button" : undefined} style={onClick ? { cursor: "pointer" } : undefined}>
     <div
       style={{
         position: "absolute",
@@ -41,6 +42,7 @@ export const KpiCard = ({ label, value, sub, icon, color, trend }) => (
         </div>
         <div
           className="syne"
+          title={typeof value === "string" || typeof value === "number" ? String(value) : undefined}
           style={{
             fontSize: 28,
             fontWeight: 800,
@@ -48,7 +50,7 @@ export const KpiCard = ({ label, value, sub, icon, color, trend }) => (
             lineHeight: 1,
           }}
         >
-          {value}
+          {shortenKpi(value)}
         </div>
         {sub && (
           <div style={{ color: C.textMuted, fontSize: 12, marginTop: 6 }}>

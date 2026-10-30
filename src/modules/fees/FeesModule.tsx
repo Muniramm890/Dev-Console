@@ -10,7 +10,9 @@ import { KpiCard } from "../../components/ui/KpiCard";
 import { PdfViewerModal } from "../../components/ui/PdfViewerModal";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { CollectPaymentModal } from "./CollectPaymentModal";
+import { FeeCollectionPage } from "./FeeCollectionPage";
 import { FeeReceiptsTab } from "./FeeReceiptsTab";
+import { FeeRegistersTab } from "./FeeRegistersTab";
 import { FeeStructuresTab } from "./FeeStructuresTab";
 import { StudentPassbookModal } from "./StudentPassbookModal";
 import { CF_PENDING_PREFIX, rupees, verifyCashfreeWithRetry } from "./helpers";
@@ -24,9 +26,11 @@ import { C } from "../../theme/theme";
 const handledCashfreeReturns = new Set();
 
 export const FeesModule = ({ school }) => {
-  const [tab, setTab] = useState("overview");
+  const { search: locQs } = useLocation();
+  const qp = new URLSearchParams(locQs);
+  const [tab, setTab] = useState(() => (["overview", "ledger", "receipts", "structures", "collection", "registers"].includes(qp.get("tab")) ? qp.get("tab") : "overview"));
   const [filterClass, setFilterClass] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterStatus, setFilterStatus] = useState(() => (["paid", "pending", "partial"].includes(qp.get("status")) ? qp.get("status") : ""));
   const [passbookStudentId, setPassbookStudentId] = useState(null);
   const [collectAccount, setCollectAccount] = useState(null);
 
@@ -123,6 +127,7 @@ export const FeesModule = ({ school }) => {
           { id: "overview", label: "Overview", icon: "chart" },
           { id: "ledger", label: "Fee Ledger & Collect", icon: "students" },
           { id: "receipts", label: "Transactions & Receipts", icon: "result" },
+          { id: "registers", label: "Registers", icon: "file" },
           { id: "structures", label: "Fee Structures", icon: "setup" },
         ].map((t) => (
           <button
@@ -435,7 +440,7 @@ export const FeesModule = ({ school }) => {
             {loadingAccounts ? (
               <div className="pulse" style={{ padding: 60, textAlign: "center", color: C.primary }}>Loading fee ledger…</div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              <div className="scroll-x">
                 <table className="table">
                   <thead>
                     <tr>
@@ -509,7 +514,9 @@ export const FeesModule = ({ school }) => {
       )}
 
       {/* 🔴 FIX 1: Passed the prop here */}
+      {tab === "collection" && <FeeCollectionPage onBack={() => setTab("overview")} onOpenReceipts={() => setTab("receipts")} />}
       {tab === "receipts" && <FeeReceiptsTab />}
+      {tab === "registers" && <FeeRegistersTab initialView={qp.get("view")} />}
       {tab === "structures" && <FeeStructuresTab />}
 
       <CollectPaymentModal

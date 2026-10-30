@@ -1,3 +1,4 @@
+import { apiRequest } from "./client";
 // FILE: teacher-app/src/api/uploads.ts
 // Source: admin App.tsx -> compressImage [23742-23783], uploadToCloudinary [23785-23804]
 // @ts-nocheck
@@ -46,22 +47,23 @@ export const compressImage = (file) => {
   });
 };
 
-export const uploadToCloudinary = async (file) => {
-  const CLOUD_NAME = "vosr6w5p"; // Apna Cloud Name
-  const UPLOAD_PRESET = "school_erp_files"; // Apna Unsigned Preset
-
+export const uploadToCloudinary = async (file, kind = "general") => {
   // Step A: Instant Compress
   const compressedFile = await compressImage(file);
 
+  // Step B: the server signs the upload (logged-in users only, images only, own school folder) - no public preset any more
+  const sig = (await apiRequest("/files/sign-upload", "POST", { kind }))?.data;
+  if (!sig?.signature) throw new Error("Could not start the upload");
+
   const formData = new FormData();
   formData.append("file", compressedFile);
-  formData.append("upload_preset", UPLOAD_PRESET);
+  formData.append("api_key", sig.api_key);
+  formData.append("timestamp", String(sig.timestamp));
+  formData.append("signature", sig.signature);
+  formData.append("folder", sig.folder);
+  formData.append("allowed_formats", sig.allowed_formats);
 
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
-    method: "POST",
-    body: formData,
-  });
-
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${sig.cloud_name}/image/upload`, { method: "POST", body: formData });
   const data = await res.json();
   if (data.secure_url) return data.secure_url;
   throw new Error(data.error?.message || "Upload failed");

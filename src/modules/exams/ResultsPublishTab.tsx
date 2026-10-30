@@ -286,7 +286,7 @@ export const ResultsPublishTab = ({ exam, examSections, onExamUpdated }) => {
             Recompute Results".
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="scroll-x">
             <table className="table">
               <thead>
                 <tr>

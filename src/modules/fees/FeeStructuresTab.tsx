@@ -3,6 +3,7 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
+import { useDialog } from "../../contexts/DialogContext";
 import { FormGrid } from "../../components/ui/FormGrid";
 import { FormRow } from "../../components/ui/FormRow";
 import { Icon } from "../../components/ui/Icon";
@@ -13,10 +14,15 @@ import { C } from "../../theme/theme";
 
 // ── STRUCTURES TAB ──
 export const FeeStructuresTab = () => {
+  const { dialogConfirm } = useDialog();
   const [grades, setGrades] = useState([]);
   const [categories, setCategories] = useState([]);
   const { academicYears: academicYrs, currentYear } = useSession();
   const [gradeId, setGradeId] = useState("");
+  // automation (recurring invoices + late fee): everything is OFF until an admin switches it on
+  const [auto, setAuto] = useState({ auto_invoices: false, invoice_day: 1, late_fee_enabled: false, late_fee_from: null });
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [uncovered, setUncovered] = useState([]);
   const [rows, setRows] = useState({}); // category_id -> {amount, frequency, due_day_of_month, late_fee, grace_days}
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -117,17 +123,60 @@ export const FeeStructuresTab = () => {
     } catch (e) { alert("Save failed: " + e.message); } finally { setSaving(false); }
   };
 
+  const loadAuto = async () => {
+    try { setAuto((await apiRequest("/fees/settings"))?.data || auto); } catch (_) { /* viewer without rights */ }
+    try { if (currentYear?.id) setUncovered((await apiRequest(`/fees/structures/coverage?academic_year_id=${currentYear.id}`))?.data || []); } catch (_) { setUncovered([]); }
+  };
+  useEffect(() => { loadAuto(); }, [currentYear?.id, saving]); // eslint-disable-line
+
+  const saveAuto = async (next) => {
+    if (next.late_fee_enabled && !auto.late_fee_enabled) {
+      const ok = await dialogConfirm(
+        "A late fee will be added automatically to every invoice that is still unpaid after its due date + grace days, using the Late Fee and Grace Days set for each fee head below.\n\nIt applies only to invoices due from today onwards (nothing old is charged), is added once per invoice, and shows as a separate 'Late Fee' head at collection and on the receipt. You can waive it by giving a discount on that head.\n\nEnable late fee?",
+        "Enable late fee"
+      );
+      if (!ok) return;
+    }
+    setAutoSaving(true);
+    try { setAuto((await apiRequest("/fees/settings", "PUT", next))?.data || next); }
+    catch (e) { alert("Could not save: " + e.message); }
+    finally { setAutoSaving(false); }
+  };
+  const runAutoNow = async () => {
+    setAutoSaving(true);
+    try {
+      const d = (await apiRequest("/fees/automation/run", "POST", {}))?.data || {};
+      alert(`Done.\nInvoices generated: ${d.auto_invoices ? d.auto_invoices.generated : "-"}${d.auto_invoices && d.auto_invoices.skipped_duplicate ? ` (already billed: ${d.auto_invoices.skipped_duplicate})` : ""}\nLate fees added: ${d.late_fee ? d.late_fee.applied : "-"}`);
+    } catch (e) { alert("Failed: " + e.message); } finally { setAutoSaving(false); }
+  };
+
   const handleGenerate = async () => {
     if (!genForm.title || !genForm.due_date) return alert("Title and due date are required.");
     setGenerating(true);
     try {
-      const res = await apiRequest("/fees/generate-invoices", "POST", {
+      const body = {
         grade_id: genForm.scope === "grade" ? gradeId : null,
         academic_year_id: currentYear.id,
         month_index: genForm.month_index || null,
         title: genForm.title,
         due_date: genForm.due_date,
-      });
+      };
+      // 1) dry run: show exactly what will be billed before any money record is created
+      const prev = (await apiRequest("/fees/generate-invoices", "POST", { ...body, dry_run: true }))?.data || {};
+      if (!prev.generated) {
+        setGenerating(false);
+        return alert(`Nothing to generate.\nAlready billed with this title: ${prev.skipped_duplicate || 0}\nNo fee set for the class: ${prev.skipped_no_fee || 0}`);
+      }
+      const ok = await dialogConfirm(
+        `${prev.generated} invoices, total ₹${((prev.total_paise || 0) / 100).toLocaleString("en-IN")}, will be created.` +
+          (prev.skipped_duplicate ? `\n${prev.skipped_duplicate} students already have "${genForm.title}" and are skipped.` : "") +
+          (prev.skipped_no_fee ? `\n${prev.skipped_no_fee} students have no fee due this time (yearly / one-time fees are not repeated).` : "") +
+          (prev.no_structure && prev.no_structure.length ? `\nNo fee structure is set for: ${prev.no_structure.map((n) => `${n.name} (${n.students})`).join(", ")}.` : "") +
+          "\n\nGenerate now?",
+        "Generate invoices"
+      );
+      if (!ok) { setGenerating(false); return; }
+      const res = await apiRequest("/fees/generate-invoices", "POST", body);
       alert(`✅ ${res?.data?.generated || 0} invoices generated successfully!`);
       setGenModal(false);
       setGenForm({ scope: "all", title: "", due_date: "", month_index: "" });
@@ -138,6 +187,47 @@ export const FeeStructuresTab = () => {
 
   return (
     <div>
+      {uncovered.length > 0 && (
+        <div className="card" style={{ marginBottom: 12, borderLeft: `4px solid ${C.yellow}`, display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <Icon name="warning" size={16} />
+          <div style={{ fontSize: 12.5, color: C.text }}>
+            <b>No fee structure for {uncovered.length} class{uncovered.length > 1 ? "es" : ""}</b> in this session, so these students will NOT be billed:{" "}
+            {uncovered.map((u) => `${u.name} (${u.students})`).join(", ")}. Select the class below and save its fees.
+          </div>
+        </div>
+      )}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <h3 className="syne" style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Automation <span style={{ color: C.textMuted, fontWeight: 500, fontSize: 12 }}>· off until you switch it on</span></h3>
+        <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 280px" }}>
+            <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 700, fontSize: 13 }}>
+              <input type="checkbox" checked={!!auto.auto_invoices} disabled={autoSaving} onChange={(e) => saveAuto({ ...auto, auto_invoices: e.target.checked })} />
+              Generate recurring invoices automatically
+            </label>
+            <div style={{ fontSize: 11.5, color: C.textMuted, margin: "5px 0 8px" }}>
+              Each month the invoice is created by the fee frequency (monthly every month, quarterly / half-yearly after the gap, annual once a year, one-time once). Due date = the smallest Due Day set below. Safe to run again: nothing is billed twice.
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
+              Create invoices from day
+              <input className="input" type="number" min={1} max={28} style={{ width: 70 }} value={auto.invoice_day} disabled={autoSaving}
+                onChange={(e) => setAuto({ ...auto, invoice_day: e.target.value })} onBlur={() => saveAuto({ ...auto, invoice_day: Number(auto.invoice_day) || 1 })} />
+              of every month
+            </div>
+          </div>
+          <div style={{ flex: "1 1 280px" }}>
+            <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 700, fontSize: 13 }}>
+              <input type="checkbox" checked={!!auto.late_fee_enabled} disabled={autoSaving} onChange={(e) => saveAuto({ ...auto, late_fee_enabled: e.target.checked })} />
+              Charge late fee automatically
+            </label>
+            <div style={{ fontSize: 11.5, color: C.textMuted, margin: "5px 0 8px" }}>
+              After due date + grace days, a separate <b>Late Fee</b> head is added once to the unpaid invoice (amount = Late Fee set per head below). It never touches old invoices{auto.late_fee_from ? ` (active for invoices due from ${auto.late_fee_from})` : ""}. Waive it at collection with a discount.
+            </div>
+          </div>
+        </div>
+        {(auto.auto_invoices || auto.late_fee_enabled) && (
+          <button className="btn btn-ghost" style={{ marginTop: 10, fontSize: 12 }} disabled={autoSaving} onClick={runAutoNow}>{autoSaving ? "Working…" : "Run now"}</button>
+        )}
+      </div>
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: 1 }}>
           {grades.map((g) => (
@@ -165,7 +255,7 @@ export const FeeStructuresTab = () => {
         {categories.length === 0 ? (
           <div style={{ padding: 30, textAlign: "center", color: C.textMuted }}>No fee categories yet — add Tuition, Transport, Exam Fee, etc.</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="scroll-x">
             <table className="table">
               <thead><tr><th>Category</th><th>Amount (₹)</th><th>Frequency</th><th>Due Day</th><th>Late Fee (₹)</th><th>Grace Days</th></tr></thead>
               <tbody>

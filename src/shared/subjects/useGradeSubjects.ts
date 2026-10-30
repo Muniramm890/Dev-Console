@@ -4,18 +4,18 @@
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
 
-export const useGradeSubjects = (gradeId) => {
+export const useGradeSubjects = (gradeId, sectionId) => {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const reload = React.useCallback(async () => {
-    if (!gradeId) {
+    if (!gradeId && !sectionId) {
       setSubjects([]);
       return;
     }
     setLoading(true);
     try {
-      const res = await apiRequest(`/setup/grade-subjects?grade_id=${gradeId}`);
+      const res = await apiRequest(sectionId ? `/setup/grade-subjects?section_id=${sectionId}` : `/setup/grade-subjects?grade_id=${gradeId}`);
       setSubjects(Array.isArray(res?.data) ? res.data : []);
     } catch (e) {
       console.error("Failed to load grade subjects", e);
@@ -23,7 +23,7 @@ export const useGradeSubjects = (gradeId) => {
     } finally {
       setLoading(false);
     }
-  }, [gradeId]);
+  }, [gradeId, sectionId]);
 
   useEffect(() => {
     reload();

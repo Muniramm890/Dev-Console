@@ -25,7 +25,7 @@ export const BuildTimetableTab = ({ academicYearId }) => {
   const [allTeachers, setAllTeachers] = useState([]);
   const [checkingCell, setCheckingCell] = useState(null);
 
-  const { subjects: classSubjects } = useGradeSubjects(gradeId);
+  const { subjects: classSubjects } = useGradeSubjects(gradeId, sectionId);
 
   // Flat, sorted class list for the chip selector: 6A, 6B, 7A, 7B, 11-Science...
   const classList = grades

@@ -59,14 +59,7 @@ export const ExamCard = ({ exam, onManage, onEdit, onDelete, onPublishToggle }) 
           : "—"}
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
-          gap: 8,
-          marginBottom: 14,
-        }}
-      >
+      <div className="grid-auto-stat" style={{ marginBottom: 14 }}>
         {[
           ["Classes", exam.section_count ?? 0],
           ["Weightage", `${exam.weightage_percent ?? 0}%`],

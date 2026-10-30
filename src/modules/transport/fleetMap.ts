@@ -19,7 +19,15 @@ async function createLeaflet(container, cfg, h) {
   }).addTo(map);
   const ro = new ResizeObserver(() => map.invalidateSize()); ro.observe(container);
   const popup = L.popup({ offset: [0, -42], maxWidth: 280 });
-  const markers = {}; let fitted = false;
+  const markers = {}; let fitted = false; let openId = null;
+  popup.on("remove", () => { openId = null; });
+  const glide = (mk, to) => { // move smoothly to the new position instead of jumping
+    const from = mk.getLatLng(); cancelAnimationFrame(mk._raf);
+    if (map.distance(from, to) > 3000 || map.distance(from, to) < 1) { mk.setLatLng(to); return; }
+    const t0 = performance.now(), D = 900;
+    const step = (t) => { const k = Math.min(1, (t - t0) / D); mk.setLatLng([from.lat + (to[0] - from.lat) * k, from.lng + (to[1] - from.lng) * k]); if (k < 1) mk._raf = requestAnimationFrame(step); };
+    mk._raf = requestAnimationFrame(step);
+  };
   const icon = (color, label) => L.divIcon({ className: "", html: pinSvg(color, label), iconSize: [40, 47], iconAnchor: [20, 47] });
   const bounds = (list) => L.latLngBounds(list.filter((v) => v.lat != null).map((v) => [v.lat, v.lng]));
   let last = [];
@@ -31,15 +39,16 @@ async function createLeaflet(container, cfg, h) {
         if (v.lat == null) return; seen.add(v.id);
         let mk = markers[v.id];
         if (!mk) { mk = L.marker([v.lat, v.lng], { icon: icon(v.color, v.label), title: v.title }).addTo(map); mk.on("click", () => h.onSelect(v.id)); markers[v.id] = mk; }
-        mk.setLatLng([v.lat, v.lng]); mk.setIcon(icon(v.color, v.label)); mk.setZIndexOffset(v.status === "live" ? 300 : v.status === "recent" ? 200 : 100);
+        glide(mk, [v.lat, v.lng]); mk.setIcon(icon(v.color, v.label)); mk.setZIndexOffset(v.status === "live" ? 300 : v.status === "recent" ? 200 : 100);
       });
       Object.keys(markers).forEach((id) => { if (!seen.has(id)) { map.removeLayer(markers[id]); delete markers[id]; } });
       if (!fitted && seen.size) { fitted = true; const b = bounds(list); if (b.isValid()) map.fitBounds(b, { padding: [50, 50], maxZoom: 16 }); }
     },
-    focus(id, html) {
+    focus(id, html, recenter = true) { // recenter=false: live update of an already open popup only
       const mk = markers[id]; if (!mk) return;
+      if (!recenter) { if (openId === id) popup.setLatLng(mk.getLatLng()).setContent(html); return; }
       map.setView(mk.getLatLng(), Math.max(map.getZoom(), 16), { animate: true });
-      popup.setLatLng(mk.getLatLng()).setContent(html).openOn(map);
+      popup.setLatLng(mk.getLatLng()).setContent(html).openOn(map); openId = id;
     },
     fitAll() { const b = bounds(last); if (b.isValid()) map.fitBounds(b, { padding: [50, 50], maxZoom: 16 }); map.closePopup(); },
     setTraffic() {},
@@ -67,7 +76,15 @@ const loadGoogle = (key, onAuthFail) => {
 async function createGoogle(container, cfg, h) {
   const maps = await loadGoogle(cfg.google_maps_key, h.onFail);
   const map = new maps.Map(container, { center: { lat: 22.5, lng: 78.9 }, zoom: 5, mapTypeControl: true, streetViewControl: false, fullscreenControl: true, gestureHandling: "greedy", clickableIcons: false });
-  const info = new maps.InfoWindow(); const markers = {}; let fitted = false, traffic = null, last = [];
+  const info = new maps.InfoWindow(); const markers = {}; let fitted = false, traffic = null, last = [], openId = null;
+  info.addListener("closeclick", () => { openId = null; });
+  const glide = (mk, to) => {
+    const from = mk.getPosition(); if (!from) { mk.setPosition(to); return; } cancelAnimationFrame(mk._raf);
+    const t0 = performance.now(), D = 900, dl = to.lat - from.lat(), dg = to.lng - from.lng();
+    if (Math.abs(dl) > 0.03 || Math.abs(dg) > 0.03) { mk.setPosition(to); return; }
+    const step = (t) => { const k = Math.min(1, (t - t0) / D); mk.setPosition({ lat: from.lat() + dl * k, lng: from.lng() + dg * k }); if (k < 1) mk._raf = requestAnimationFrame(step); };
+    mk._raf = requestAnimationFrame(step);
+  };
   const icon = (color, label) => ({ url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(pinSvg(color, label)), scaledSize: new maps.Size(40, 47), anchor: new maps.Point(20, 47) });
   const fit = (list) => { const b = new maps.LatLngBounds(); let n = 0; list.forEach((v) => { if (v.lat != null) { b.extend({ lat: v.lat, lng: v.lng }); n++; } }); if (n) { map.fitBounds(b, 60); if (n === 1) map.setZoom(15); } };
   return {
@@ -78,12 +95,16 @@ async function createGoogle(container, cfg, h) {
         if (v.lat == null) return; seen.add(v.id); const pos = { lat: v.lat, lng: v.lng };
         let mk = markers[v.id];
         if (!mk) { mk = new maps.Marker({ map, position: pos, title: v.title }); mk.addListener("click", () => h.onSelect(v.id)); markers[v.id] = mk; }
-        mk.setPosition(pos); mk.setIcon(icon(v.color, v.label)); mk.setZIndex(v.status === "live" ? 3 : v.status === "recent" ? 2 : 1);
+        glide(mk, pos); mk.setIcon(icon(v.color, v.label)); mk.setZIndex(v.status === "live" ? 3 : v.status === "recent" ? 2 : 1);
       });
       Object.keys(markers).forEach((id) => { if (!seen.has(id)) { markers[id].setMap(null); delete markers[id]; } });
       if (!fitted && seen.size) { fitted = true; fit(list); }
     },
-    focus(id, html) { const mk = markers[id]; if (!mk) return; map.panTo(mk.getPosition()); if ((map.getZoom() || 0) < 15) map.setZoom(16); info.setContent(html); info.open({ map, anchor: mk }); },
+    focus(id, html, recenter = true) {
+      const mk = markers[id]; if (!mk) return;
+      if (!recenter) { if (openId === id) info.setContent(html); return; }
+      map.panTo(mk.getPosition()); if ((map.getZoom() || 0) < 15) map.setZoom(16); info.setContent(html); info.open({ map, anchor: mk }); openId = id;
+    },
     fitAll() { fit(last); info.close(); },
     setTraffic(on) { if (!traffic) traffic = new maps.TrafficLayer(); traffic.setMap(on ? map : null); },
     destroy() { Object.values(markers).forEach((m) => m.setMap(null)); },

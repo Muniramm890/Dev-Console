@@ -107,6 +107,7 @@ export const CollectPaymentModal = ({ account, onClose, onSuccess }) => {
 
   const handleRazorpayPay = async () => {
     if (totalPayingPaise <= 0) { setError("Enter a valid paying amount to proceed online"); return; }
+    if (totalDiscountPaise > 0) { setError("A discount can be given only with Cash / Cheque / Bank collection, not with an online payment."); return; }
     setError(""); setRzpLoading(true);
 
     const breakdown = Object.entries(inputs)
@@ -124,6 +125,7 @@ export const CollectPaymentModal = ({ account, onClose, onSuccess }) => {
       const orderRes = await apiRequest("/payments/razorpay/create-order", "POST", {
         student_id: account.student_id,
         amount_paise: totalPayingPaise,
+        breakdown,
       });
       const order = orderRes?.data;
       if (!order?.order_id) throw new Error("Could not create payment order");
@@ -177,6 +179,7 @@ export const CollectPaymentModal = ({ account, onClose, onSuccess }) => {
   // 🔴 NEW: Cashfree flow — same payload shape as handleRazorpayPay
 const handleCashfreePay = async () => {
   if (totalPayingPaise <= 0) { setError("Enter a valid paying amount to proceed online"); return; }
+  if (totalDiscountPaise > 0) { setError("A discount can be given only with Cash / Cheque / Bank collection, not with an online payment."); return; }
   setError(""); setRzpLoading(true);
 
   const breakdown = Object.entries(inputs)
@@ -281,7 +284,7 @@ const handleCashfreePay = async () => {
             ) : pendingItems.length === 0 ? (
               <div style={{ textAlign: "center", color: C.green, padding: "20px 0", fontSize: 13, fontWeight: 600 }}>All dues cleared! 🎉</div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              <div className="scroll-x">
               <table className="table" style={{ fontSize: 12, minWidth: 480 }}>
                 <thead>
                   <tr>

@@ -142,7 +142,7 @@ export const StudentPassbookModal = ({ studentId, onClose, onVoided }) => {
             <div style={{ fontSize: 12, color: C.textMuted }}>No payments recorded yet.</div>
           ) : (
             <>
-              <div className="pb-table" style={{ overflowX: "auto" }}>
+              <div className="pb-table scroll-x">
                 <table className="table" style={{ minWidth: 560, whiteSpace: "nowrap" }}>
                   <thead><tr><th>Receipt</th><th>Date</th><th>Amount</th><th>Method</th><th>Collected By</th><th></th></tr></thead>
                   <tbody>

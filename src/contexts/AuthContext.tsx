@@ -2,6 +2,7 @@
 // Source: admin App.tsx -> AuthContext, AuthProvider, useAuth
 // @ts-nocheck
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { collectClientContext } from "../utils/clientContext";
 import { apiRequest, setAuthLogoutRef } from "../api/client";
 import { unregisterPush } from "../native";
 import { useDialog } from "./DialogContext";
@@ -125,9 +126,11 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       // API call
+      const clientCtx = await collectClientContext(); // device name + GPS (asks location permission once in the Android app)
       const response = await apiRequest("/auth/login", "POST", {
         email,
         password,
+        ...clientCtx,
       });
   
       // 🔥 THE FIX: Agar backend { success: true, data: {...} } bhejta hai, toh use parse karein

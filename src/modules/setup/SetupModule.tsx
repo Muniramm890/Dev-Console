@@ -10,7 +10,7 @@ import { LogoLoader } from "../../components/ui/LogoLoader";
 import { Modal } from "../../components/ui/Modal";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { useSession } from "../../contexts/SessionContext";
-import { DailyRoutineBuilder } from "./DailyRoutineBuilder";
+import { AcademicSessionsTab } from "./AcademicSessionsTab";
 import { SchoolSubjectsTab } from "../../shared/subjects/SchoolSubjectsTab";
 import { SubjectsClassLevelTab } from "../../shared/subjects/SubjectsClassLevelTab";
 import { C } from "../../theme/theme";
@@ -22,7 +22,7 @@ import { C } from "../../theme/theme";
 
 export const SetupModule = () => {
   const { academicYears, reloadAcademicYears, setAcademicYearId } = useSession();
-  const [tab, setTab] = useState("identity"); // 'identity', 'operations', 'classes', 'sections', 'subjects'
+  const [tab, setTab] = useState("identity"); // 'identity', 'sessions', 'classes', 'sections', 'subjects'
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -32,7 +32,6 @@ export const SetupModule = () => {
   const [sections, setSections] = useState([]);
   const [subjects, setSubjects] = useState([]);
   
-  const [periods, setPeriods] = useState([]); // 🔴 Daily routine — same pattern as grades/sections
 
   // Modal States
   const [showAddGrade, setShowAddGrade] = useState(false);
@@ -41,14 +40,6 @@ export const SetupModule = () => {
     prefillGradeId: "",
   });
   const [showAddSubject, setShowAddSubject] = useState(false);
-  const [showAddSession, setShowAddSession] = useState(false);
-  const [sessionSaving, setSessionSaving] = useState(false);
-  const [sessionForm, setSessionForm] = useState({
-    name: "",
-    start_date: "",
-    end_date: "",
-    is_current: false,
-  });
 
   // Form States
   const [gradeForm, setGradeForm] = useState({
@@ -80,19 +71,17 @@ export const SetupModule = () => {
     async ({ showLoader = false } = {}) => {
       if (showLoader) setLoading(true);
       try {
-        const [schRes, grRes, secRes, subRes, prRes] = await Promise.all([
+        const [schRes, grRes, secRes, subRes] = await Promise.all([
           apiRequest("/setup/school", "GET").catch(() => ({ data: {} })),
           apiRequest("/setup/grades", "GET").catch(() => ({ data: [] })),
           apiRequest("/setup/sections", "GET").catch(() => ({ data: [] })),
           apiRequest("/setup/subjects", "GET").catch(() => ({ data: [] })),
-          apiRequest("/timetable/periods", "GET").catch(() => ({ data: [] })),
         ]);
 
         if (schRes?.data) setSchoolData(schRes.data);
         setGrades(Array.isArray(grRes?.data) ? grRes.data : []);
         setSections(Array.isArray(secRes?.data) ? secRes.data : []);
         setSubjects(Array.isArray(subRes?.data) ? subRes.data : []);
-        setPeriods(Array.isArray(prRes?.data) ? prRes.data : []); // 🔴 populate saved routine
       } catch (error) {
         console.error("Failed to load setup data", error);
       } finally {
@@ -173,77 +162,6 @@ export const SetupModule = () => {
   };
 
   // ── Academic Sessions (uses existing GET/POST /setup/academic-years) ──────
-  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const ymd = (v) => String(v || "").slice(0, 10);
-  const fmtDate = (v) => {
-    const p = ymd(v).split("-");
-    return p.length === 3 ? `${p[2]} ${MONTHS[Number(p[1]) - 1]} ${p[0]}` : "—";
-  };
-  const pad2 = (n) => String(n).padStart(2, "0");
-  const lastDay = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate(); // m = 1..12
-
-  // Suggest the next session from the months set in "Academic Session Rules"
-  const suggestNextSession = () => {
-    const sm = Number(schoolData.academic_year_start) || 4;
-    const em = Number(schoolData.academic_year_end) || 3;
-    const maxStart = academicYears.reduce((m, y) => (ymd(y.start_date) > m ? ymd(y.start_date) : m), "");
-    const startYear = maxStart ? Number(maxStart.slice(0, 4)) + 1 : new Date().getFullYear();
-    const endYear = em < sm ? startYear + 1 : startYear;
-    return {
-      name: endYear === startYear ? `${startYear}` : `${startYear}-${String(endYear).slice(2)}`,
-      start_date: `${startYear}-${pad2(sm)}-01`,
-      end_date: `${endYear}-${pad2(em)}-${pad2(lastDay(endYear, em))}`,
-      is_current: academicYears.length === 0, // first ever session must be current
-    };
-  };
-
-  const openAddSession = () => {
-    setSessionForm(suggestNextSession());
-    setShowAddSession(true);
-  };
-
-  const handleCreateSession = async () => {
-    const name = String(sessionForm.name || "").trim();
-    const sd = ymd(sessionForm.start_date);
-    const ed = ymd(sessionForm.end_date);
-    if (!name) return alert("Session name is required.");
-    if (!sd || !ed) return alert("Start date and end date are required.");
-    if (ed <= sd) return alert("End date must be after the start date.");
-    if (academicYears.some((y) => String(y.name).trim().toLowerCase() === name.toLowerCase())) {
-      return alert(`A session named "${name}" already exists.`);
-    }
-    const clash = academicYears.find((y) => sd <= ymd(y.end_date) && ed >= ymd(y.start_date));
-    if (clash) {
-      return alert(
-        `These dates overlap with the existing session "${clash.name}" (${fmtDate(clash.start_date)} – ${fmtDate(clash.end_date)}).`
-      );
-    }
-    if (sessionForm.is_current) {
-      const cur = academicYears.find((y) => y.is_current);
-      const ok = window.confirm(
-        `Make "${name}" the current session?${cur ? ` "${cur.name}" will no longer be current.` : ""}\nThis changes the active session for the whole school.`
-      );
-      if (!ok) return;
-    }
-    setSessionSaving(true);
-    try {
-      const res = await apiRequest("/setup/academic-years", "POST", {
-        name,
-        start_date: sd,
-        end_date: ed,
-        is_current: !!sessionForm.is_current,
-      });
-      setShowAddSession(false);
-      await reloadAcademicYears(); // refresh the global session list
-      if (sessionForm.is_current && res?.data?.id) setAcademicYearId(res.data.id); // switch every module to it
-      alert(`✅ Session "${name}" created.`);
-    } catch (err) {
-      alert("Error: " + err.message);
-    } finally {
-      setSessionSaving(false);
-    }
-  };
-
   // ✅ FIXED: no more window.location.reload()
   const handleCreateSection = async () => {
     try {
@@ -362,7 +280,7 @@ export const SetupModule = () => {
     <div className="slide-in">
       <SectionHeader
         title="Institution Configuration"
-        sub="Control your SaaS environment, academic structure, and daily operations."
+        sub="Control your SaaS environment, academic structure, and sessions."
       />
 
       <div
@@ -377,7 +295,7 @@ export const SetupModule = () => {
       >
         {[
           { id: "identity", label: "Identity & Branding" },
-          { id: "operations", label: "Daily Operations" },
+          { id: "sessions", label: "Academic Sessions" },
           { id: "classes", label: "Class Hierarchy" },
           { id: "sections", label: "Sections" },
           { id: "school-subjects", label: "School Subjects" },
@@ -728,167 +646,7 @@ export const SetupModule = () => {
       {/* ──────────────────────────────────────────────────────────── */}
       {/* 2. DAILY OPERATIONS TAB */}
       {/* ──────────────────────────────────────────────────────────── */}
-      {tab === "operations" && (
-        <div>
-          <div
-            className="grid-2"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 20,
-              marginBottom: 20,
-            }}
-          >
-          <DailyRoutineBuilder periods={periods} onSaved={fetchSetupData} />
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <div className="card">
-              <h3
-                className="syne"
-                style={{
-                  fontSize: 15,
-                  fontWeight: 700,
-                  marginBottom: 16,
-                  color: C.green,
-                }}
-              >
-                <Icon name="academic" size={16} /> Academic Session Rules
-              </h3>
-              <FormGrid>
-                <FormRow label="Academic Year Starts">
-                  <select
-                    className="select"
-                    value={schoolData.academic_year_start || 4}
-                    onChange={(e) =>
-                      setSchoolData({
-                        ...schoolData,
-                        academic_year_start: parseInt(e.target.value),
-                      })
-                    }
-                  >
-                    <option value={1}>January</option>
-                    <option value={3}>March</option>
-                    <option value={4}>April</option>
-                    <option value={6}>June</option>
-                    <option value={7}>July</option>
-                  </select>
-                </FormRow>
-                <FormRow label="Academic Year Ends">
-                  <select
-                    className="select"
-                    value={schoolData.academic_year_end || 3}
-                    onChange={(e) =>
-                      setSchoolData({
-                        ...schoolData,
-                        academic_year_end: parseInt(e.target.value),
-                      })
-                    }
-                  >
-                    <option value={2}>February</option>
-                    <option value={3}>March</option>
-                    <option value={4}>April</option>
-                    <option value={5}>May</option>
-                    <option value={12}>December</option>
-                  </select>
-                </FormRow>
-              </FormGrid>
-              <div
-                style={{
-                  padding: 12,
-                  background: `${C.green}11`,
-                  border: `1px solid ${C.green}33`,
-                  borderRadius: 10,
-                  marginTop: 10,
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: 12,
-                    color: C.green,
-                    margin: 0,
-                    fontWeight: 600,
-                  }}
-                >
-                  Current Active Session is controlled automatically by these
-                  rules. Financial module will calculate due dates accordingly.
-                </p>
-              </div>
-            </div>
-
-            {/* ── Academic Sessions: list + add (existing GET/POST /setup/academic-years) ── */}
-            <div className="card">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <h3 className="syne" style={{ fontSize: 15, fontWeight: 700, margin: 0, color: C.green }}>
-                  <Icon name="academic" size={16} /> Academic Sessions
-                </h3>
-                <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={openAddSession}>
-                  <Icon name="plus" size={13} /> Add Session
-                </button>
-              </div>
-              {academicYears.length === 0 ? (
-                <div style={{ fontSize: 12.5, color: C.textMuted, padding: "10px 0" }}>
-                  No session yet. Add your first academic session to start enrolling students.
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {academicYears.map((y) => (
-                    <div
-                      key={y.id}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "10px 12px",
-                        border: `1px solid ${y.is_current ? `${C.green}55` : C.border}`,
-                        background: y.is_current ? `${C.green}0d` : "transparent",
-                        borderRadius: 10,
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 13 }}>{y.name}</div>
-                        <div style={{ fontSize: 11.5, color: C.textMuted }}>
-                          {fmtDate(y.start_date)} – {fmtDate(y.end_date)}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {y.is_current && <span className="badge badge-green">Current</span>}
-                        {y.is_locked && <span className="badge badge-yellow">Locked</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div style={{ fontSize: 11, color: C.textMuted, marginTop: 10, lineHeight: 1.5 }}>
-                Sections are created per session. Tick “Make this the current session” while adding to switch the active session.
-              </div>
-            </div>
-            </div>
-          </div>
-
-          <div
-            className="card"
-            style={{
-              background: C.surfaceAlt,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "16px 24px",
-            }}
-          >
-            <div style={{ fontSize: 13, color: C.textMuted }}>
-              These settings directly impact Timetable & Fee Modules.
-            </div>
-            <button
-              className="btn btn-primary"
-              style={{ minWidth: 200, opacity: saving ? 0.7 : 1 }}
-              onClick={handleSaveSchool}
-              disabled={saving}
-            >
-              {saving ? "Updating..." : "Save Operation Settings"}
-            </button>
-          </div>
-        </div>
-      )}
+      {tab === "sessions" && <AcademicSessionsTab />}
 
       {/* ──────────────────────────────────────────────────────────── */}
       {/* 3. GRADES / CLASSES TAB */}
@@ -916,7 +674,7 @@ export const SetupModule = () => {
                   </button>
                 }
               />
-              <div style={{ overflowX: "auto" }}>
+              <div className="scroll-x">
                 <table className="table">
                   <thead>
                     <tr>
@@ -1151,58 +909,6 @@ export const SetupModule = () => {
  {tab === "subjects" && <SubjectsClassLevelTab grades={grades} subjects={subjects} />}
 
       {/* ═════════════════════════ MODALS ═════════════════════════ */}
-
-      <Modal
-        open={showAddSession}
-        onClose={() => setShowAddSession(false)}
-        title="Add Academic Session"
-      >
-        <FormRow label="Session Name (e.g. 2026-27)">
-          <input
-            className="input"
-            placeholder="e.g. 2026-27"
-            value={sessionForm.name}
-            onChange={(e) => setSessionForm({ ...sessionForm, name: e.target.value })}
-          />
-        </FormRow>
-        <FormGrid>
-          <FormRow label="Start Date">
-            <input
-              className="input"
-              type="date"
-              value={sessionForm.start_date}
-              onChange={(e) => setSessionForm({ ...sessionForm, start_date: e.target.value })}
-            />
-          </FormRow>
-          <FormRow label="End Date">
-            <input
-              className="input"
-              type="date"
-              value={sessionForm.end_date}
-              onChange={(e) => setSessionForm({ ...sessionForm, end_date: e.target.value })}
-            />
-          </FormRow>
-        </FormGrid>
-        <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, marginTop: 12, cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={!!sessionForm.is_current}
-            onChange={(e) => setSessionForm({ ...sessionForm, is_current: e.target.checked })}
-          />
-          Make this the current session
-        </label>
-        <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 8, lineHeight: 1.5 }}>
-          Dates are suggested from the months in “Academic Session Rules”. Sessions cannot overlap or repeat a name.
-        </div>
-        <button
-          className="btn btn-primary"
-          style={{ width: "100%", marginTop: 16, opacity: sessionSaving ? 0.7 : 1 }}
-          onClick={handleCreateSession}
-          disabled={sessionSaving}
-        >
-          {sessionSaving ? "Creating…" : "Create Session"}
-        </button>
-      </Modal>
 
       <Modal
         open={showAddGrade}

@@ -1,147 +1,126 @@
-// FILE: teacher-app/src/shared/subjects/SubjectsClassLevelTab.tsx
-// Source: admin App.tsx -> SubjectsClassLevelTab [1424-1556]
 // @ts-nocheck
+// Subjects per class / section. "Save for Class" applies one list to every section; "Save for A" only to that section.
 import { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
 import { FormRow } from "../../components/ui/FormRow";
 import { useDialog } from "../../contexts/DialogContext";
 import { C } from "../../theme/theme";
 
-// ═══════════════════════════════════════════════════════════════
-// 🔴 NEW SUBJECTS TAB — Class-level checkbox + custom-add setup.
-// Drop this JSX in place of the OLD {tab === "subjects" && (...)} block
-// inside SetupModule's return(). Needs: grades (already in SetupModule state).
-// ═══════════════════════════════════════════════════════════════
-export const SubjectsClassLevelTab = ({ grades, subjects }) => {
-  const { dialogAlert, dialogConfirm } = useDialog(); // 🔴 Custom Dialog Hook को इम्पोर्ट किया
+const up = (v) => String(v).toUpperCase();
+const unionOf = (m, secs) => { const u = new Set(); secs.forEach((s) => (m[up(s.id)] || new Set()).forEach((x) => u.add(x))); return u; };
+const sameSets = (m, secs) => {
+  if (secs.length < 2) return true;
+  const key = (s) => [...(m[up(s.id)] || [])].sort().join();
+  const f = key(secs[0]);
+  return secs.every((s) => key(s) === f);
+};
 
+export const SubjectsClassLevelTab = ({ grades, subjects }) => {
+  const { dialogAlert, dialogConfirm } = useDialog();
   const [gradeId, setGradeId] = useState("");
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [initialIds, setInitialIds] = useState(new Set());
+  const [sections, setSections] = useState([]);
+  const [map, setMap] = useState({}); // SECTION_ID -> Set(SUBJECT_ID) as saved
+  const [view, setView] = useState("class"); // "class" or a section id
+  const [selected, setSelected] = useState(new Set());
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const grade = grades.find((g) => g.id === gradeId);
 
-  const selectedGrade = grades.find((g) => g.id === gradeId);
+  useEffect(() => { if (grades.length && !gradeId) setGradeId(grades[0].id); }, [grades]); // eslint-disable-line
 
-  useEffect(() => {
-    if (grades.length && !gradeId) setGradeId(grades[0].id);
-  }, [grades]); 
-
-  const loadAssigned = async () => {
+  const load = async (keepView) => {
     if (!gradeId) return;
     setLoading(true);
     try {
-      const res = await apiRequest(`/setup/grade-subjects?grade_id=${gradeId}`);
-      const list = Array.isArray(res?.data) ? res.data : [];
-      const ids = new Set(list.map((s) => s.id));
-      setSelectedIds(ids);
-      setInitialIds(ids); 
+      const [sRes, yRes, mRes] = await Promise.all([
+        apiRequest(`/setup/sections?grade_id=${gradeId}`),
+        apiRequest("/setup/academic-years").catch(() => ({ data: [] })),
+        apiRequest(`/setup/section-subjects?grade_id=${gradeId}`),
+      ]);
+      let secs = Array.isArray(sRes?.data) ? sRes.data : [];
+      const cur = (Array.isArray(yRes?.data) ? yRes.data : []).find((y) => y.is_current);
+      const inYear = cur ? secs.filter((s) => up(s.academic_year_id) === up(cur.id)) : secs;
+      secs = (inYear.length ? inYear : secs).filter((s) => s.is_active !== false && s.is_active !== 0);
+      const m = {};
+      (Array.isArray(mRes?.data) ? mRes.data : []).forEach((r) => { (m[up(r.section_id)] = m[up(r.section_id)] || new Set()).add(up(r.subject_id)); });
+      const v = keepView && keepView !== "class" && secs.some((s) => s.id === keepView) ? keepView : "class";
+      setSections(secs); setMap(m); setView(v);
+      setSelected(v === "class" ? unionOf(m, secs) : new Set(m[up(v)] || []));
     } catch (e) {
-      console.error(e);
-      setSelectedIds(new Set());
-      setInitialIds(new Set());
-    } finally {
-      setLoading(false);
-    }
+      console.error(e); setSections([]); setMap({}); setSelected(new Set());
+    } finally { setLoading(false); }
   };
-  
-  useEffect(() => { loadAssigned(); }, [gradeId]); 
+  useEffect(() => { setView("class"); load(); }, [gradeId]); // eslint-disable-line
 
-  const toggle = (id) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
+  const pick = (v) => { setView(v); setSelected(v === "class" ? unionOf(map, sections) : new Set(map[up(v)] || [])); };
+  const toggle = (id) => setSelected((prev) => { const n = new Set(prev); const k = up(id); if (n.has(k)) n.delete(k); else n.add(k); return n; });
 
-  const handleSave = async () => {
-    if (!gradeId) return;
-
-    const removedCount = [...initialIds].filter(id => !selectedIds.has(id)).length;
-    
-    if (removedCount > 0) {
-      const confirmMsg = `You are removing ${removedCount} subject(s) from this class.\n\nThis action will automatically DELETE these subjects from:\n1. The Timetable of this class.\n2. Teacher Subject Assignments for this class.\n\nDo you want to proceed?`;
-      
-      // 🔴 Custom Dialog Confirm (Native window.confirm हटाया)
-      const isConfirmed = await dialogConfirm(confirmMsg, "⚠️ Critical Warning");
-      if (!isConfirmed) return; // Stop if user cancels
-    }
-
+  const save = async (targets, label) => {
+    let removed = 0;
+    targets.forEach((s) => (map[up(s.id)] || new Set()).forEach((x) => { if (!selected.has(x)) removed++; }));
+    const parts = [];
+    if (targets.length > 1 && !sameSets(map, targets)) parts.push("The sections of this class currently have different subjects. Saving will make them identical.");
+    if (removed > 0) parts.push(`${removed} subject assignment(s) will be removed. They will also be removed from the timetable and teacher assignments of the affected section(s).`);
+    if (parts.length && !(await dialogConfirm(`${parts.join("\n\n")}\n\nDo you want to continue?`, "Confirm Changes"))) return;
     setSaving(true);
     try {
-      await apiRequest("/setup/grade-subjects", "PUT", {
-        grade_id: gradeId,
-        subject_ids: Array.from(selectedIds),
-      });
-      // 🔴 Custom Dialog Alert (Native window.alert हटाया)
-      await dialogAlert("Subjects and dependencies synced successfully!", "✅ Success");
-      await loadAssigned(); 
+      await apiRequest("/setup/section-subjects", "PUT", { grade_id: gradeId, section_ids: targets.map((s) => s.id), subject_ids: [...selected] });
+      await dialogAlert(`Subjects saved for ${label}.`, "Saved");
+      await load(view);
     } catch (e) {
-      await dialogAlert("Failed: " + e.message, "❌ Error");
-    } finally {
-      setSaving(false);
-    }
+      await dialogAlert(e?.message || "Could not save subjects.", "Save Failed");
+    } finally { setSaving(false); }
   };
 
+  const viewLabel = view === "class" ? `${grade?.name || "Class"} (all sections)` : `${grade?.name || ""} - ${sections.find((s) => s.id === view)?.name || ""}`;
+
   return (
-    <div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <FormRow label="Select Class">
-          <select className="select" style={{ maxWidth: 260 }} value={gradeId} onChange={(e) => setGradeId(e.target.value)}>
-            <option value="">-- Choose a class --</option>
-            {grades.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}{g.stream && g.stream !== "none" ? ` (${g.stream})` : ""}</option>
-            ))}
-          </select>
-        </FormRow>
+    <div className="card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 15 }}>Subjects: {viewLabel}</div>
+        <span className="badge">{selected.size} selected</span>
       </div>
+      <FormRow label="Class">
+        <select className="select" value={gradeId} onChange={(e) => setGradeId(e.target.value)}>
+          {grades.map((g) => (<option key={g.id} value={g.id}>{g.name}</option>))}
+        </select>
+      </FormRow>
 
-      {!gradeId ? (
-        <div className="card" style={{ padding: 40, textAlign: "center", color: C.textMuted }}>
-          Select a class above to configure its subjects.
-        </div>
-      ) : subjects.length === 0 ? (
-        <div className="card" style={{ padding: 40, textAlign: "center", color: C.textMuted }}>
-          No school subjects created yet. Go to "School Subjects" tab first to build your subject master list.
-        </div>
-      ) : (
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 className="syne" style={{ fontSize: 16, fontWeight: 700 }}>Subjects for {selectedGrade?.name}</h3>
-            <span className="badge badge-blue">{selectedIds.size} selected</span>
-          </div>
-
-          {loading ? (
-            <div className="pulse" style={{ textAlign: "center", color: C.primary, padding: 20 }}>Loading…</div>
-          ) : (
-            <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))", gap: 10, marginBottom: 20 }}>
-                {subjects.map((s) => {
-                  const checked = selectedIds.has(s.id);
-                  return (
-                    <label
-                      key={s.id}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, cursor: "pointer",
-                        border: `1.5px solid ${checked ? C.primary : C.border}`, background: checked ? `${C.primary}11` : C.surfaceAlt,
-                      }}
-                    >
-                      <input type="checkbox" checked={checked} onChange={() => toggle(s.id)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: C.primary }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, color: checked ? C.primary : C.text }}>{s.name}</span>
-                    </label>
-                  );
-                })}
-              </div>
-              <div style={{ borderTop: `1px solid ${C.border}44`, paddingTop: 16, display: "flex", justifyContent: "flex-end" }}>
-                <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ minWidth: 180, opacity: saving ? 0.7 : 1 }}>
-                  {saving ? "Saving…" : `Save Subjects for ${selectedGrade?.name}`}
-                </button>
-              </div>
-            </>
-          )}
+      {sections.length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "12px 0" }}>
+          {[{ id: "class", name: "All Sections" }, ...sections].map((s) => (
+            <button key={s.id} className={view === s.id ? "btn btn-primary" : "btn btn-ghost"} style={{ padding: "5px 14px", fontSize: 12 }} onClick={() => pick(s.id)}>{s.name}</button>
+          ))}
         </div>
       )}
+
+      {loading ? (
+        <div style={{ padding: 20, color: C.textMuted }}>Loading…</div>
+      ) : sections.length === 0 ? (
+        <div style={{ padding: 20, color: C.textMuted }}>This class has no sections yet. Create a section first, then assign subjects.</div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 8, margin: "12px 0 16px" }}>
+          {subjects.map((s) => {
+            const on = selected.has(up(s.id));
+            return (
+              <label key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, cursor: "pointer", fontSize: 13,
+                border: `1px solid ${on ? C.primary : C.border}` }}>
+                <input type="checkbox" checked={on} onChange={() => toggle(s.id)} style={{ accentColor: C.primary }} />
+                {s.name}
+              </label>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+        {sections.map((s) => (
+          <button key={s.id} className="btn btn-ghost" disabled={saving || loading} onClick={() => save([s], `${grade?.name || ""} - ${s.name}`)}>Save for {s.name}</button>
+        ))}
+        <button className="btn btn-primary" disabled={saving || loading || !sections.length} onClick={() => save(sections, `${grade?.name || "the class"} (all sections)`)}>
+          {saving ? "Saving…" : `Save for ${grade?.name || "Class"}`}
+        </button>
+      </div>
     </div>
   );
 };

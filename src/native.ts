@@ -42,6 +42,16 @@ export const initNative = async () => {
 
 // ── Push notifications (FCM) ──
 let pushToken = null;
+let pushSynced = false;
+let pushApi = null;
+
+const syncPushToken = async () => {
+  if (!pushToken || !pushApi) return;
+  try {
+    await pushApi("/device-tokens", "POST", { fcm_token: pushToken, platform: "android" });
+    pushSynced = true;
+  } catch (e) { console.warn("push register failed", e?.message); }
+};
 
 // login ke baad: permission -> token -> backend ko batao. Tap par 'open-chat' event (SchoolERP use sunta hai).
 export const registerPush = async (api) => {
@@ -54,10 +64,21 @@ export const registerPush = async (api) => {
 
     await PushNotifications.createChannel({ id: "chat", name: "Messages", description: "Announcements and chat replies", importance: 4, visibility: 1, vibration: true }).catch(() => {});
     await PushNotifications.removeAllListeners(); // dobara login par duplicate listeners na bane
+    pushApi = api;
     PushNotifications.addListener("registration", async (t) => {
       pushToken = t.value;
-      try { await api("/device-tokens", "POST", { fcm_token: t.value, platform: "android" }); } catch (e) { console.warn("push register failed", e?.message); }
+      pushSynced = false;
+      await syncPushToken();
     });
+    // app khula ho to system tray me banner nahi aata: UI refresh ke liye event bhej do
+    PushNotifications.addListener("pushNotificationReceived", (n) => {
+      window.dispatchEvent(new CustomEvent("push-received", { detail: n?.data || {} }));
+    });
+    // token POST fail hua tha (network/401) to app wapas khulne par dobara koshish
+    try {
+      const { App } = await import("@capacitor/app");
+      App.addListener("resume", () => { if (pushToken && !pushSynced) syncPushToken(); });
+    } catch (_) { /* ignore */ }
     PushNotifications.addListener("registrationError", (e) => console.warn("push registration error", e));
     PushNotifications.addListener("pushNotificationActionPerformed", (a) => {
       const d = a?.notification?.data || {};

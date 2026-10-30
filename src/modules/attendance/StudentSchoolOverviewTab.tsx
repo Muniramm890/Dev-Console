@@ -4,7 +4,9 @@
 import { useEffect, useState } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { apiRequest } from "../../api/client";
+import { useSession } from "../../contexts/SessionContext";
 import { KpiCard } from "../../components/ui/KpiCard";
+import { ClassAttendanceBoxes } from "./ClassAttendanceBoxes";
 import { C } from "../../theme/theme";
 import { daysAgoISO, todayISO } from "../../utils/date";
 import { STATUS_KEYS, STATUS_META } from "../../utils/status";
@@ -13,17 +15,18 @@ import { STATUS_KEYS, STATUS_META } from "../../utils/status";
 // STUDENTS — TAB 3: SCHOOL OVERVIEW
 // ═══════════════════════════════════════════════════════════════
 export const StudentSchoolOverviewTab = () => {
+  const { currentYear } = useSession();
   const [date, setDate] = useState(todayISO());
   const [from, setFrom] = useState(daysAgoISO(6));
   const [to, setTo] = useState(todayISO());
   const [data, setData] = useState({ today: {}, gradeWise: [], trend: [] });
   const [loading, setLoading] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent) => {
+    if (silent !== true) setLoading(true);
     try {
       const res = await apiRequest(
-        `/attendance/students/school-overview?date=${date}&from=${from}&to=${to}`
+        `/attendance/students/school-overview?date=${date}&from=${from}&to=${to}${currentYear?.id ? `&academic_year_id=${currentYear.id}` : ""}`
       );
       setData(res?.data || { today: {}, gradeWise: [], trend: [] });
     } catch (e) {
@@ -34,7 +37,7 @@ export const StudentSchoolOverviewTab = () => {
   };
   useEffect(() => {
     load();
-  }, [date, from, to]); // eslint-disable-line
+  }, [date, from, to, currentYear?.id]); // eslint-disable-line
 
   const t = data.today || {};
   const pieData = STATUS_KEYS.map((s) => ({
@@ -78,7 +81,7 @@ export const StudentSchoolOverviewTab = () => {
               className="input"
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => setDate(!e.target.value || e.target.value > todayISO() ? todayISO() : e.target.value)}
               max={todayISO()}
             />
           </div>
@@ -153,6 +156,8 @@ export const StudentSchoolOverviewTab = () => {
           />
         ))}
       </div>
+
+      <ClassAttendanceBoxes date={date} data={data} loading={loading} onReload={load} />
 
       <div
         className="grid-2"

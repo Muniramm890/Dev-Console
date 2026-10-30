@@ -13,7 +13,8 @@ import { C } from "../../theme/theme";
 // ═══════════════════════════════════════════════════════════════
 // EXAM WORKSPACE — opened after clicking "Manage" on an exam card
 // ═══════════════════════════════════════════════════════════════
-export const ExamWorkspace = ({ exam, onBack, onExamUpdated }) => {
+export const ExamWorkspace = ({ exam, onBack, onExamUpdated, openAdmit }) => {
+  const [admitOnce, setAdmitOnce] = useState(!!openAdmit); // open the Admit Cards popup once (dashboard deep link)
   const [tab, setTab] = useState("datesheet"); // 'datesheet' | 'marks' | 'results'
   const [examSections, setExamSections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +110,7 @@ export const ExamWorkspace = ({ exam, onBack, onExamUpdated }) => {
       ) : (
         <>
           {tab === "datesheet" && (
-            <DateSheetTab examId={exam.id} examSections={examSections} examStatus={exam.status} />
+            <DateSheetTab examId={exam.id} examSections={examSections} examStatus={exam.status} openAdmit={admitOnce} onAdmitShown={() => setAdmitOnce(false)} />
           )}
           {tab === "marks" && (
             <MarksEntryTab examId={exam.id} examSections={examSections} examStatus={exam.status} />

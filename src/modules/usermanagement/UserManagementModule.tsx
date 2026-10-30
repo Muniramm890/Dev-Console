@@ -151,7 +151,7 @@ export const UserManagementModule = () => {
             ) : filtered.length === 0 ? (
               <div style={{ padding: 50, textAlign: "center", color: C.textMuted }}>No staff found.</div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              <div className="scroll-x">
                 <table className="table">
                   <thead>
                     <tr><th>Staff</th><th>Role</th><th>Access</th><th>Status</th><th>Last Login</th><th style={{ width: 90 }}></th></tr>
@@ -232,7 +232,7 @@ export const UserManagementModule = () => {
                   ) : studentsList.length === 0 ? (
                     <div style={{ padding: 50, textAlign: "center", color: C.textMuted }}>No students found.</div>
                   ) : (
-                    <div style={{ overflowX: "auto" }}>
+                    <div className="scroll-x">
                       <table className="table">
                         <thead>
                           <tr><th>Student</th><th>Class</th><th>Login ID</th><th>Status</th><th>Last Login</th><th style={{ width: 90 }}></th></tr>

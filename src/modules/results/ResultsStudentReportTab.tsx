@@ -47,7 +47,7 @@ const ReportBody = ({ report, name }) => {
       {marksSubs.length > 0 && (
         <>
           <div style={head}>Scholastic subjects</div>
-          <div style={{ overflowX: "auto" }}>
+          <div className="scroll-x">
             <table className="table" style={{ minWidth: 520 }}>
               <thead><tr><th>Subject</th><th>Marks</th><th>Max</th><th style={{ width: 150 }}>Score</th><th>Result</th></tr></thead>
               <tbody>
