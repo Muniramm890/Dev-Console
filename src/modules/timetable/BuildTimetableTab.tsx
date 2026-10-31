@@ -6,6 +6,9 @@ import { apiRequest } from "../../api/client";
 import { DAYS, subjectColor } from "./helpers";
 import { useGradeSubjects } from "../../shared/subjects/useGradeSubjects";
 import { C } from "../../theme/theme";
+import { openGeneratedPdf } from "../../utils/fetchDoc";
+import { useDialog } from "../../contexts/DialogContext";
+import { Icon } from "../../components/ui/Icon";
 
 // ═══════════════════════════════════════════════════════════════
 // BUILD TIMETABLE — the main visual grid, class-chip driven
@@ -24,6 +27,16 @@ export const BuildTimetableTab = ({ academicYearId }) => {
   const [dirty, setDirty] = useState(false);
   const [allTeachers, setAllTeachers] = useState([]);
   const [checkingCell, setCheckingCell] = useState(null);
+  const { dialogAlert } = useDialog();
+  const [printing, setPrinting] = useState(false);
+  // Whole-school class-wise master timetable (classes x days x periods, 1-2 pages) rendered by the backend, opens in the in-app viewer
+  const handlePrint = async () => {
+    if (dirty && !confirm("You have unsaved changes. The printout shows only SAVED timetables. Print anyway?")) return;
+    setPrinting(true);
+    try { await openGeneratedPdf(`/timetable/print/classes?academic_year_id=${academicYearId}`, { name: "Class-wise Timetable.pdf", title: "Class-wise Timetable" }); }
+    catch (e) { await dialogAlert(e.message || "Could not generate the PDF", "PDF failed"); }
+    finally { setPrinting(false); }
+  };
 
   const { subjects: classSubjects } = useGradeSubjects(gradeId, sectionId);
 
@@ -270,8 +283,16 @@ export const BuildTimetableTab = ({ academicYearId }) => {
             />
           </div>
           <button
+            className="btn btn-ghost"
+            style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}
+            onClick={handlePrint}
+            disabled={printing || loading || periods.length === 0}
+            title="Print timetable of all classes (PDF)"
+          >
+            <Icon name="download" size={14} /> {printing ? "Preparing…" : "Print All Classes"}
+          </button>
+          <button
             className="btn btn-primary"
-            style={{ marginLeft: "auto" }}
             onClick={handleSave}
             disabled={saving || loading || periods.length === 0}
           >

@@ -11,6 +11,7 @@ import { Modal } from "../../components/ui/Modal";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { useSession } from "../../contexts/SessionContext";
 import { AcademicSessionsTab } from "./AcademicSessionsTab";
+import { WhatsAppTab } from "./WhatsAppTab";
 import { SchoolSubjectsTab } from "../../shared/subjects/SchoolSubjectsTab";
 import { SubjectsClassLevelTab } from "../../shared/subjects/SubjectsClassLevelTab";
 import { C } from "../../theme/theme";
@@ -300,6 +301,7 @@ export const SetupModule = () => {
           { id: "sections", label: "Sections" },
           { id: "school-subjects", label: "School Subjects" },
           { id: "subjects", label: "Subjects & Curriculum" },
+          { id: "whatsapp", label: "WhatsApp" },
         ].map((t) => (
           <button
             key={t.id}
@@ -647,6 +649,7 @@ export const SetupModule = () => {
       {/* 2. DAILY OPERATIONS TAB */}
       {/* ──────────────────────────────────────────────────────────── */}
       {tab === "sessions" && <AcademicSessionsTab />}
+      {tab === "whatsapp" && <WhatsAppTab />}
 
       {/* ──────────────────────────────────────────────────────────── */}
       {/* 3. GRADES / CLASSES TAB */}

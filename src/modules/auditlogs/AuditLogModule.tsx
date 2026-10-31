@@ -11,6 +11,7 @@ import { Modal } from "../../components/ui/Modal";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { useDialog } from "../../contexts/DialogContext";
 import { AUDIT_ACTION_META, getAuditMeta } from "./helpers";
+import { WhatsAppLogsTab } from "./WhatsAppLogsTab";
 import { C } from "../../theme/theme";
 
 export const AuditLogModule = () => {
@@ -89,7 +90,7 @@ export const AuditLogModule = () => {
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         {[
           { id: "system", label: "System Activity" },
-          { id: "whatsapp", label: "WhatsApp Logs", soon: true },
+          { id: "whatsapp", label: "WhatsApp Logs" },
           { id: "razorpay", label: "Razorpay Logs", soon: true },
         ].map((t) => (
           <button key={t.id} className={`tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)} style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -99,7 +100,9 @@ export const AuditLogModule = () => {
         ))}
       </div>
 
-      {tab !== "system" ? (
+      {tab === "whatsapp" ? (
+        <WhatsAppLogsTab />
+      ) : tab !== "system" ? (
         <div className="card" style={{ padding: 50, textAlign: "center" }}>
           <div style={{ fontSize: 44, marginBottom: 12 }}>{tab === "whatsapp" ? "💬" : "💳"}</div>
           <div className="syne" style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>

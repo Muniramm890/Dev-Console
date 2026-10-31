@@ -8,7 +8,7 @@ export const setToken = (t) => (t ? localStorage.setItem(KEY, t) : localStorage.
 
 export class ApiErr extends Error { status: number; code?: string; errors?: string[]; }
 
-export async function papi(path, method = "GET", body = undefined) {
+export async function papi(path, method = "GET", body = undefined, full = false) {
   const headers = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const t = getToken();
@@ -21,7 +21,7 @@ export async function papi(path, method = "GET", body = undefined) {
     if (res.status === 401 && path !== "/auth/login") { setToken(null); window.dispatchEvent(new Event("dc-logout")); }
     throw Object.assign(new ApiErr(j?.message || `Request failed (${res.status})`), { status: res.status, code: j?.code, errors: j?.errors });
   }
-  return j?.data;
+  return full ? j : j?.data;
 }
 
 export const explain = (e, max = 6) => {

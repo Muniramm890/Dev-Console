@@ -5,12 +5,24 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
 import { DAY_LABELS_FULL } from "./helpers";
 import { C } from "../../theme/theme";
+import { openGeneratedPdf } from "../../utils/fetchDoc";
+import { useDialog } from "../../contexts/DialogContext";
+import { Icon } from "../../components/ui/Icon";
 
 export const TeacherWeeklyViewTab = ({ academicYearId }) => {
   const [teachers, setTeachers] = useState([]);
   const [teacherId, setTeacherId] = useState("");
   const [data, setData] = useState({ days: {} });
   const [loading, setLoading] = useState(false);
+  const { dialogAlert } = useDialog();
+  const [printing, setPrinting] = useState(false);
+  // Whole-school teacher-wise master timetable (teachers x days x periods, 1-2 pages) rendered by the backend, opens in the in-app viewer
+  const handlePrint = async () => {
+    setPrinting(true);
+    try { await openGeneratedPdf(`/timetable/print/teachers?academic_year_id=${academicYearId}`, { name: "Teacher-wise Timetable.pdf", title: "Teacher-wise Timetable" }); }
+    catch (e) { await dialogAlert(e.message || "Could not generate the PDF", "PDF failed"); }
+    finally { setPrinting(false); }
+  };
 
   useEffect(() => {
     (async () => {
@@ -43,7 +55,7 @@ export const TeacherWeeklyViewTab = ({ academicYearId }) => {
 
   return (
     <div>
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card" style={{ marginBottom: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
         <select
           className="select"
           style={{ width: 240 }}
@@ -57,6 +69,9 @@ export const TeacherWeeklyViewTab = ({ academicYearId }) => {
             </option>
           ))}
         </select>
+        <button className="btn btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={handlePrint} disabled={printing} title="Print timetable of all teachers (PDF)">
+          <Icon name="download" size={14} /> {printing ? "Preparing…" : "Print All Teachers"}
+        </button>
       </div>
 
       {!teacherId ? (
