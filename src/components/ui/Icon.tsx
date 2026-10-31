@@ -7,6 +7,10 @@ export const Icon = ({ name, size = 16, color }) => {
     // [teacher-app] added: mail, send, paperclip, message, megaphone (feather/lucide paths)
     // [sidebar-icons] unique nav icons (feather/lucide paths): zap, schedule, swap, graduation, usercheck, audit
     zap: "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+    // [dev-console] added: chevron, sun, moon (feather paths)
+    chevron: "M9 18l6-6-6-6",
+    sun: "M12 17a5 5 0 100-10 5 5 0 000 10z M12 1v2 M12 21v2 M4.22 4.22l1.42 1.42 M18.36 18.36l1.42 1.42 M1 12h2 M21 12h2 M4.22 19.78l1.42-1.42 M18.36 5.64l1.42-1.42",
+    moon: "M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z",
     schedule: "M3 3h18v18H3z M3 9h18 M3 15h18 M9 3v18 M15 3v18",
     swap: "M17 1l4 4-4 4 M3 11V9a4 4 0 014-4h14 M7 23l-4-4 4-4 M21 13v2a4 4 0 01-4 4H3",
     graduation: "M22 10L12 5 2 10l10 5 10-5z M6 12v5c3 3 9 3 12 0v-5 M22 10v6",

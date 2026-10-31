@@ -17,12 +17,15 @@ import { WhatsappPage } from "./pages/Whatsapp";
 import { ProfilePage } from "./pages/Profile";
 import { SearchModal } from "./pages/Search";
 import { DevPanel, OpenSchoolModal } from "./DevPanel";
-import { C } from "../theme/theme";
+import { DevSidebar, NAV_TITLES } from "./DevSidebar";
+import { Icon } from "../components/ui/Icon";
+import { useIsMobile } from "../hooks/useIsMobile";
+import { C, applyTheme, getSavedTheme } from "../theme/theme";
 
 const clearSchoolSession = () => { ["erp_token", "erp_academic_year_id", "erp_driver_mode"].forEach((k) => localStorage.removeItem(k)); };
 
-const ITEMS = [["schools", "Schools"], ["whatsapp", "WhatsApp (Meta)"], ["audit", "Audit"], ["announcements", "Notices"]];
-const TITLES = { schools: "Schools", school: "School", new: "New school", whatsapp: "WhatsApp (Meta)", audit: "Audit", announcements: "Notices", profile: "Profile" };
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } };
 
 export const DevApp = () => {
   const [authed, setAuthed] = useState(!!getToken());
@@ -34,6 +37,9 @@ export const DevApp = () => {
   const [searching, setSearching] = useState(false);
   const [me, setMe] = useState(null);
   const [menu, setMenu] = useState(false);
+  const [collapsed, setCollapsed] = useState(lsGet("dc_side_collapsed", "0") === "1");
+  const [themeMode, setThemeMode] = useState(getSavedTheme());
+  const mobile = useIsMobile(860);
 
   const exit = useCallback((msg) => { clearSchoolSession(); window.__DEV_CONSOLE__ = null; setActing(null); if (msg) toast(msg); }, []);
   const enter = useCallback(async (school, { write, reason }) => {
@@ -47,6 +53,11 @@ export const DevApp = () => {
     } catch (e) { toast(explain(e), "err"); throw e; }
   }, [exit]);
 
+  useEffect(() => { applyTheme(getSavedTheme()); }, []);
+  useEffect(() => {
+    const k = (e) => { if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === "k") { e.preventDefault(); setSearching(true); } };
+    window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
+  }, []);
   useEffect(() => { clearSchoolSession(); }, []); // never keep a school token from an earlier visit
   useEffect(() => {
     const out = () => { setAuthed(false); exit(); };
@@ -74,23 +85,29 @@ export const DevApp = () => {
   const go = (v) => { setView(v); setMenu(false); try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } };
   const active = (n) => name === n || (n === "schools" && (name === "school" || name === "new"));
   const logout = () => { setToken(null); setAuthed(false); setMe(null); };
+  const toggleCollapsed = () => setCollapsed((c) => { lsSet("dc_side_collapsed", c ? "0" : "1"); return !c; });
+  const toggleTheme = () => { const next = themeMode === "dark" ? "light" : "dark"; applyTheme(next); setThemeMode(next); };
+  const crumbs = name === "school" ? ["Schools", "Details"] : name === "new" ? ["Schools", "New school"] : [NAV_TITLES[name] || ""];
   return (
-    <div className="dc-shell">
-      <aside className={`dc-side${menu ? " open" : ""}`} style={{ background: C.surface }}>
-        <div className="dc-brand"><img src="/favicon.svg" alt="" /><div><b className="syne" style={{ fontSize: 15, display: "block", lineHeight: 1.1 }}>School Office</b><span style={{ fontSize: 11, color: C.textMuted }}>Developer Console</span></div></div>
-        {ITEMS.map(([n, label]) => <button key={n} className={`dc-item${active(n) ? " on" : ""}`} onClick={() => go(n)}>{label}</button>)}
-        <button className="dc-item" onClick={() => { setSearching(true); setMenu(false); }}>Search</button>
-        <div style={{ flex: 1 }} />
-        <button className={`dc-item${name === "profile" ? " on" : ""}`} style={{ flexDirection: "column", alignItems: "flex-start", gap: 2 }} onClick={() => go("profile")}>
-          <span>Profile</span>
-          <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 500 }}>{me?.name || me?.email || ""}</span>
-        </button>
-      </aside>
-      <div className={`dc-scrim${menu ? " open" : ""}`} onClick={() => setMenu(false)} />
+    <div className="dc-shell" style={{ background: C.bg, color: C.text }}>
+      <DevSidebar
+        active={active("schools") ? (name === "new" ? "new" : "schools") : name}
+        onNav={go} collapsed={collapsed} onToggle={toggleCollapsed}
+        mobile={mobile} open={menu} onClose={() => setMenu(false)}
+        me={me} onSearch={() => setSearching(true)} themeMode={themeMode} onTheme={toggleTheme}
+      />
+      {mobile && <div className={`dc-scrim${menu ? " open" : ""}`} onClick={() => setMenu(false)} />}
       <div className="dc-main">
-        <div className="dc-top">
-          <button className="btn btn-ghost dc-menu-btn" onClick={() => setMenu(true)}>Menu</button>
-          <b className="syne" style={{ fontSize: 15 }}>{TITLES[name] || ""}</b>
+        <div className="dc-top" style={{ background: `${C.bg}e6`, borderBottom: `1px solid ${C.border}` }}>
+          {mobile
+            ? <button className="btn btn-ghost" style={{ padding: "7px 9px" }} onClick={() => setMenu(true)} aria-label="Open menu"><Icon name="menu" size={18} /></button>
+            : <button className="btn btn-ghost" style={{ padding: "7px 9px" }} onClick={toggleCollapsed} aria-label="Toggle sidebar"><Icon name="menu" size={18} /></button>}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="dc-crumb">{crumbs.map((c, i) => <span key={i}>{i > 0 && <span style={{ opacity: .5 }}> / </span>}{c}</span>)}</div>
+            <b className="syne" style={{ fontSize: 16 }}>{crumbs[crumbs.length - 1]}</b>
+          </div>
+          <button className="btn btn-ghost" style={{ padding: "7px 10px", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setSearching(true)}><Icon name="search" size={15} />{!mobile && <span>Search</span>}</button>
+          <button className="btn btn-ghost" style={{ padding: "7px 9px" }} onClick={toggleTheme} aria-label="Toggle theme"><Icon name={themeMode === "dark" ? "sun" : "moon"} size={16} /></button>
         </div>
         <div className="dc-wrap">
           {name === "schools" && <SchoolsPage go={go} onOpen={setAsk} />}

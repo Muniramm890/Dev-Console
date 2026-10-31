@@ -4,6 +4,8 @@ import { papi, ago, explain, toast } from "../api";
 import { Chip, Modal, Field, statusColor, useLoad } from "../ui";
 import { healthFlags } from "../health";
 import { C } from "../../theme/theme";
+import { KpiCard } from "../../components/ui/KpiCard";
+import { EmptyState } from "../../components/ui/EmptyState";
 
 const FLAG = { red: C.red, yellow: C.yellow, grey: C.textMuted };
 
@@ -32,7 +34,7 @@ export const SchoolsPage = ({ go, onOpen }) => {
   };
   useEffect(() => { const t = setTimeout(() => fetchPage(1, true), 250); return () => clearTimeout(t); }, [q, st, del]); // eslint-disable-line
   const o = ov.data || {};
-  const cards = [["Schools", o.schools, C.primary], ["Active", o.active, C.green], ["Suspended", o.suspended, C.yellow], ["Blocked", o.blocked, C.red], ["Students", o.students, C.blue], ["Staff", o.staff, C.purple]];
+  const cards = [["Schools", o.schools, C.primary, "dashboard"], ["Active", o.active, C.green, "check"], ["Suspended", o.suspended, C.yellow, "clock"], ["Blocked", o.blocked, C.red, "alert"], ["Students", o.students, C.blue, "students"], ["Staff", o.staff, C.purple, "teachers"]];
   const toggle = (id) => setSel((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const runBulk = async () => {
     try { const r = await papi("/schools/bulk", "POST", { ids: [...sel], action: bulk, reason, message }); toast(`Done (${r.affected} school(s))`); setBulk(null); setSel(null); setReason(""); setMessage(""); fetchPage(1, true); ov.reload(); }
@@ -40,7 +42,7 @@ export const SchoolsPage = ({ go, onOpen }) => {
   };
   return (
     <div>
-      <div className="dc-grid">{cards.map(([l, v, c]) => (<div key={l} className="card dc-kpi" style={{ "--k": c }}><b className="syne" style={{ color: c }}>{v ?? "-"}</b><span>{l}</span></div>))}</div>
+      <div className="dc-kpi-grid">{cards.map(([l, v, c, ic]) => <KpiCard key={l} label={l} value={v ?? "-"} icon={ic} color={c} />)}</div>
 
       <div className="dc-row" style={{ marginBottom: 12 }}>
         <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="Search name, slug, city, email" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -80,7 +82,7 @@ export const SchoolsPage = ({ go, onOpen }) => {
           );
         })}
         {err && <div className="card" style={{ color: C.red, fontSize: 13 }}>{err} <button className="btn btn-ghost" onClick={() => fetchPage(1, true)}>Retry</button></div>}
-        {!items.length && !busy && !err && <div className="card" style={{ textAlign: "center", color: C.textMuted }}>No schools found.</div>}
+        {!items.length && !busy && !err && <div className="card"><EmptyState icon="dashboard" title="No schools found" sub="Filter badal ke dekho ya nayi school add karo." action={<button className="btn btn-primary" onClick={() => go("new")}>+ New school</button>} /></div>}
         {items.length < total && <button className="btn btn-ghost" disabled={busy} onClick={() => fetchPage(page + 1, false)}>{busy ? "Loading..." : `Load more (${items.length}/${total})`}</button>}
       </div>
 
