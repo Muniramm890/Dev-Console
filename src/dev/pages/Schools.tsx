@@ -74,7 +74,6 @@ export const SchoolsPage = ({ go, onOpen }) => {
                 </div>
                 {!sel && (
                   <div className="dc-row" onClick={(e) => e.stopPropagation()}>
-                    <button className="btn btn-primary" disabled={!!s.deleted_at} onClick={() => onOpen({ id: s.id, name: s.name })}>Open</button>
                     <button className="btn btn-ghost" onClick={() => go(`school:${s.id}`)}>Manage</button>
                   </div>)}
               </div>

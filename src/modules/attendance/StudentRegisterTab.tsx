@@ -6,14 +6,17 @@ import { openGeneratedPdf } from "../../utils/fetchDoc";
 import { RegisterGrid } from "./RegisterGrid";
 import { useGradesAndSections } from "./useGradesAndSections";
 import { todayISO } from "../../utils/date";
+import { shortDate, useSessionWindow } from "./useSessionWindow";
 
 // Students: monthly attendance register of one class (reuses GET /attendance/students/analysis?month=)
 export const StudentRegisterTab = () => {
   const { grades, sections, loading: secLoading } = useGradesAndSections();
-  const maxMonth = todayISO().slice(0, 7);
+  const win = useSessionWindow();
+  const maxMonth = win.last.slice(0, 7);
   const [gradeId, setGradeId] = useState("");
   const [sectionId, setSectionId] = useState("");
   const [month, setMonth] = useState(maxMonth);
+  useEffect(() => { setMonth(win.last.slice(0, 7)); }, [win.yearId, win.last]); // eslint-disable-line
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const seq = useRef(0);

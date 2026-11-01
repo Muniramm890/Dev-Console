@@ -4,7 +4,7 @@
 // @ts-nocheck
 
 // Sidebar nav id -> permission key (backend VALID_MODULES). Baaki ids ka key wahi hota hai.
-export const PERMISSION_KEY_BY_NAV_ID = { TransportModule: "transport" };
+export const PERMISSION_KEY_BY_NAV_ID = { TransportModule: "transport", tests2: "tests" }; // Quick Test 2.0 uses the same "tests" permission
 
 // Ye modules assign nahi hote — sirf school_admin ko.
 const ADMIN_ONLY_IDS = ["usermanagement", "auditlogs"];

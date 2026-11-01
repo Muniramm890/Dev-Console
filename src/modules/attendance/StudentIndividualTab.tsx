@@ -6,6 +6,7 @@ import { apiRequest } from "../../api/client";
 import { useGradesAndSections } from "./useGradesAndSections";
 import { C } from "../../theme/theme";
 import { daysAgoISO, todayISO } from "../../utils/date";
+import { shortDate, useSessionWindow } from "./useSessionWindow";
 import { STATUS_KEYS, STATUS_META } from "../../utils/status";
 
 // ═══════════════════════════════════════════════════════════════
@@ -19,6 +20,8 @@ export const StudentIndividualTab = () => {
   const [studentId, setStudentId] = useState("");
   const [from, setFrom] = useState(daysAgoISO(29));
   const [to, setTo] = useState(todayISO());
+  const win = useSessionWindow();
+  useEffect(() => { setFrom(win.fromDays(29)); setTo(win.last); }, [win.yearId, win.last]); // eslint-disable-line
   const [history, setHistory] = useState({
     records: [],
     counts: {},
@@ -37,7 +40,7 @@ export const StudentIndividualTab = () => {
     (async () => {
       try {
         const res = await apiRequest(
-          `/students?section_id=${sectionId}&limit=200`
+          `/students?section_id=${sectionId}&limit=200${win.yearId ? `&academic_year_id=${win.yearId}` : ""}`
         );
         setStudentsList(Array.isArray(res?.data) ? res.data : []);
       } catch (e) {
@@ -55,7 +58,7 @@ export const StudentIndividualTab = () => {
     setLoading(true);
     try {
       const res = await apiRequest(
-        `/attendance/students/${studentId}/history?from=${from}&to=${to}`
+        `/attendance/students/${studentId}/history?from=${from}&to=${to}${win.yearId ? `&academic_year_id=${win.yearId}` : ""}`
       );
       setHistory(
         res?.data || { records: [], counts: {}, percentage: 0, totalMarked: 0 }

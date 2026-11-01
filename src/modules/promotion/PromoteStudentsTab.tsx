@@ -56,9 +56,12 @@ export const PromoteStudentsTab = ({ fromYear, toYear, overview, sectionId, onSe
     const bad = list.find((s) => { const r = rows[s.student_id]; return r.action === "promote" && !r.to_section_id || r.action === "retain" && !data.retain_section && !r.to_section_id; });
     if (bad) { setError(`Choose the target section for ${fullName(bad)}.`); return; }
     const exits = counts.tc + counts.graduate;
+    const leavingDues = list.filter((s) => ["tc", "graduate"].includes(rows[s.student_id].action) && Number(s.pending_paise) > 0);
+    const duesTotal = leavingDues.reduce((a, s) => a + Number(s.pending_paise), 0);
     const msg = `Process ${list.length} students of ${secLabel({ grade_name: data.section.grade_name, name: data.section.name })} into ${toYear.name}?\n\n`
       + `Promote: ${counts.promote}   Retain: ${counts.retain}   TC: ${counts.tc}   Graduate: ${counts.graduate}`
-      + (exits ? `\n\n${exits} student(s) will be marked as left and their Student App login will be switched off.` : "");
+      + (exits ? `\n\n${exits} student(s) will be marked as left and their Student App login will be switched off.` : "")
+      + (leavingDues.length ? `\n\nWarning: ${leavingDues.length} leaving student(s) still have fees pending (Rs ${Math.round(duesTotal / 100).toLocaleString("en-IN")} in total). The TC will be issued and the dues stay on their fee account.` : "");
     if (!(await dialogConfirm(msg, "Confirm promotion"))) return;
     setSaving(true); setError("");
     try {
@@ -160,6 +163,7 @@ export const PromoteStudentsTab = ({ fromYear, toYear, overview, sectionId, onSe
                         </select>
                       )}
                       {r.action === "retain" && data.retain_section && <Chip color={C.yellow}>Stays in {secLabel(data.retain_section)}</Chip>}
+                      {Number(s.pending_paise) > 0 && <Chip color={C.red}>Dues Rs {Math.round(Number(s.pending_paise) / 100).toLocaleString("en-IN")}</Chip>}
                       {(r.action === "promote" || r.action === "retain") && <input className="input" style={{ width: 80 }} placeholder="Roll: auto" value={r.roll_no || ""} onChange={(e) => setRow(s.student_id, { roll_no: e.target.value })} />}
                       {(r.action === "tc" || r.action === "graduate") && <input className="input" style={{ width: 210 }} placeholder="Reason (optional)" value={r.reason || ""} onChange={(e) => setRow(s.student_id, { reason: e.target.value })} />}
                     </div>

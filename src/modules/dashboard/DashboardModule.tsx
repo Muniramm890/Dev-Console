@@ -7,6 +7,7 @@ import { TodayPanel } from "./TodayPanel";
 import { DocumentsRow } from "./DocumentsRow";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { apiRequest } from "../../api/client";
+import { useSession } from "../../contexts/SessionContext";
 import { Avatar } from "../../components/ui/Avatar";
 import { Icon } from "../../components/ui/Icon";
 import { KpiCard } from "../../components/ui/KpiCard";
@@ -23,26 +24,46 @@ export const DashboardModule = ({ school }) => {
   const navigate = useNavigate();
   const [tick] = useState(0);
   const { students: STUDENTS, teachers: TEACHERS, error: dataError } = useData(); // 🔴 Override mock data with real data
-  const [grades, setGrades] = useState([]);
+
   const [recentActivity, setRecentActivity] = useState([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [staffAttendance, setStaffAttendance] = useState([]);
   const [staffLoading, setStaffLoading] = useState(true);
   const activityScrollRef = useAutoScroll(recentActivity);
-  const [feeOverview, setFeeOverview] = useState(null);
-  const [feeLoading, setFeeLoading] = useState(true);
+  const { academicYearId, sessionLoading } = useSession();
+  const [summary, setSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
 
-  // 🔴 Real class-wise student counts (backend already computes student_count per grade)
+  // ONE request for every number on this page; it follows the session selected in the top bar
   useEffect(() => {
+    if (sessionLoading) return;
+    let live = true;
+    setSummaryLoading(true);
     (async () => {
       try {
-        const res = await apiRequest("/setup/grades");
-        setGrades(Array.isArray(res?.data) ? res.data : []);
+        const res = await apiRequest(`/dashboard/summary${academicYearId ? `?academic_year_id=${academicYearId}` : ""}`);
+        if (live) setSummary(res?.data || null);
       } catch (e) {
-        console.error("Failed to load grades for dashboard", e);
+        console.error("Failed to load dashboard", e);
+        if (live) setSummary(null);
+      } finally {
+        if (live) setSummaryLoading(false);
       }
     })();
-  }, [tick]);
+    return () => { live = false; };
+  }, [academicYearId, sessionLoading, tick]);
+
+  const feeOverview = summary ? { summary: summary.fees, byClass: summary.feeByClass } : null;
+  const feeLoading = summaryLoading;
+  const kpiTrends = summary?.kpiTrends || null;
+  const quickStats = summary?.quickStats || null;
+  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const realAttendanceTrend = (summary?.attendanceTrend || []).map((d) => ({ day: DAY_NAMES[new Date(d.date).getDay()], rate: d.rate }));
+
+
+
+  // 🔴 Real class-wise student counts (backend already computes student_count per grade)
+  
 
   useEffect(() => {
          (async () => {
@@ -79,82 +100,29 @@ export const DashboardModule = ({ school }) => {
 
       
     
-      useEffect(() => {
-        (async () => {
-          setFeeLoading(true);
-          try {
-            const res = await apiRequest("/fees/overview", "GET");
-            setFeeOverview(res?.data || null);
-          } catch (e) {
-            console.error("Failed to load fee overview for dashboard", e);
-            setFeeOverview(null);
-          } finally {
-            setFeeLoading(false);
-          }
-        })();
-      }, [tick]);
+      
 
       // 🔴 Real KPI trends (vs last month) — replaces hardcoded 3.2 / 0 / 5.8 / -2.1
-      const [kpiTrends, setKpiTrends] = useState(null);
-      useEffect(() => {
-        (async () => {
-          try {
-            const res = await apiRequest("/dashboard/kpi-trends");
-            setKpiTrends(res?.data || null);
-          } catch (e) {
-            console.error("Failed to load KPI trends", e);
-            setKpiTrends(null);
-          }
-        })();
-      }, [tick]);
+      
 
       // [teacher-app] Real Quick Stats (/dashboard/quick-stats) — was hardcoded "87.3%" + mock CLASSES/SECTIONS/CLASS_SUBJECTS
-      const [quickStats, setQuickStats] = useState(null);
-      useEffect(() => {
-        (async () => {
-          try {
-            const res = await apiRequest("/dashboard/quick-stats");
-            setQuickStats(res?.data || null);
-          } catch (e) {
-            console.error("Failed to load quick stats", e);
-            setQuickStats(null);
-          }
-        })();
-      }, [tick]);
+      
 
       // 🔴 Real 7-day attendance trend (replaces Math.random())
-      const [realAttendanceTrend, setRealAttendanceTrend] = useState([]);
-      useEffect(() => {
-        (async () => {
-          try {
-            const res = await apiRequest("/dashboard/summary");
-            const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-            const mapped = (res?.data?.attendanceTrend || []).map((d) => ({
-              day: days[new Date(d.date).getDay()],
-              rate: d.rate,
-            }));
-            setRealAttendanceTrend(mapped);
-          } catch (e) {
-            console.error("Failed to load attendance trend", e);
-            setRealAttendanceTrend([]);
-          }
-        })();
-      }, [tick]);
+      
 
 
-  const totalStudents = STUDENTS.length;
+  const totalStudents = summary?.students?.total ?? 0;
   const totalTeachers = staffAttendance.length || TEACHERS.length;
   const presentToday = staffAttendance.filter((t) => t.status === "P" || t.status === "OD" || t.status === "HD").length;
   const totalFeeCollected = (feeOverview?.summary?.total_paid_paise || 0) / 100;
   const totalFeePending = (feeOverview?.summary?.total_pending_paise || 0) / 100;
 
   // 🔴 Real class-wise enrollment — replaces mock CLASSES + STUDENTS.filter loop
-  const classStrength = grades.length
-    ? grades.map((g) => ({
-        name: g.name.replace("Class ", "C"),
-        students: g.student_count || 0,
-      }))
-    : []; // [teacher-app] was: CLASSES.map(...) mock fallback — ab khali (grades load nahi hue / setup nahi hua)
+  const classStrength = (summary?.enrollmentByClass || []).map((g) => ({
+    name: String(g.class_name || "").replace("Class ", "C"),
+    students: g.student_count || 0,
+  }));
       
       // fallback empty shape while grades are loading / not set up yet
       const feeByClass = (feeOverview?.byClass || []).slice(0, 8).map((c) => ({
@@ -250,7 +218,7 @@ export const DashboardModule = ({ school }) => {
           label="Total Students"
           onClick={() => navigate("/students")}
           value={totalStudents}
-          sub={`Across ${quickStats?.total_classes ?? grades.length} classes`}
+          sub={`Across ${quickStats?.total_classes ?? 0} classes`}
           icon="students"
           color={C.blue}
           trend={kpiTrends?.students}
@@ -277,7 +245,7 @@ export const DashboardModule = ({ school }) => {
           label="Fee Pending"
           onClick={() => navigate("/fees?tab=ledger&status=pending")}
           value={`₹${(totalFeePending / 100000).toFixed(1)}L`}
-          sub={`${feeOverview?.summary?.pending_count || 0} students`}
+          sub={`${feeOverview?.summary?.pending_count || 0} students` + (Number(feeOverview?.summary?.previous_dues_paise) > 0 ? ` | +Rs ${Math.round(Number(feeOverview.summary.previous_dues_paise) / 100).toLocaleString("en-IN")} earlier dues` : "")}
           icon="warning"
           color={C.red}
           trend={kpiTrends?.feePending}

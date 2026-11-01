@@ -48,7 +48,7 @@ export const SchoolDetail = ({ id, go, onOpen }) => {
             <div style={{ fontSize: 12.5, color: C.textMuted }}>{s.slug} - {[s.city, s.state].filter(Boolean).join(", ")} - since {String(s.created_at).slice(0, 10)}</div>
             <div className="dc-row" style={{ marginTop: 8 }}><Chip status={s.platform_status} deleted={!!s.deleted_at} />{flags.map(([t, c]) => <span key={t} className="dc-chip" style={{ background: `${c === "red" ? C.red : c === "yellow" ? C.yellow : C.textMuted}22`, color: c === "red" ? C.red : c === "yellow" ? C.yellow : C.textMuted }}>{t}</span>)}</div>
           </div>
-          <button className="btn btn-primary" disabled={!!s.deleted_at} onClick={() => onOpen({ id, name: s.name })}>Open school</button>
+          <div className="dc-row"><button className="btn btn-ghost" onClick={() => go(`whatsapp@numbers:${id}`)}>WhatsApp</button><button className="btn btn-primary" disabled={!!s.deleted_at} onClick={() => onOpen({ id, name: s.name })}>Open school</button></div>
         </div>
         {s.platform_status !== "active" && <p style={{ marginTop: 10, fontSize: 13, color: C.yellow }}>Reason: {s.blocked_reason || "-"}{s.platform_message ? ` - School sees: "${s.platform_message}"` : ""}</p>}
       </div>

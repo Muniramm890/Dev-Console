@@ -130,7 +130,7 @@ export const StaffDetail = ({ memberId, onBack, onChanged }) => {
           <SectionCard icon="setup" title="Role" sub={d.is_self ? "You cannot change your own role" : "What this person is allowed to do in the system"}>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               <select className="select" style={{ width: 220 }} value={roleValue} onChange={(e) => setRoleValue(e.target.value)} disabled={d.is_self}>
-                {Object.entries(ROLE_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                {Object.entries(ROLE_META).filter(([k]) => k !== "staff").map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               <button className="btn btn-primary" onClick={saveRole} disabled={d.is_self || roleValue === d.role || saving === "role"}>{saving === "role" ? "Saving…" : "Save role"}</button>
             </div>

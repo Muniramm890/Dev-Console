@@ -18,7 +18,7 @@ export const TeacherSubjectsAndTimetable = ({ teacher, academicYearId }) => {
       setLoading(true);
       try {
         const [subRes, ttRes] = await Promise.all([
-          apiRequest(`/teachers/${teacher.user_id}/assigned-subjects`),
+          apiRequest(`/teachers/${teacher.user_id}/assigned-subjects${academicYearId ? `?academic_year_id=${academicYearId}` : ""}`),
           academicYearId
             ? apiRequest(
                 `/timetable/teacher/${teacher.user_id}?academic_year_id=${academicYearId}`

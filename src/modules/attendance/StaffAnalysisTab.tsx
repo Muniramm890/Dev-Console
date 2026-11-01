@@ -6,6 +6,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { apiRequest } from "../../api/client";
 import { C } from "../../theme/theme";
 import { daysAgoISO, todayISO } from "../../utils/date";
+import { shortDate, useSessionWindow } from "./useSessionWindow";
 
 // ═══════════════════════════════════════════════════════════════
 // TEACHERS — TAB 2: STAFF ANALYSIS
@@ -13,6 +14,8 @@ import { daysAgoISO, todayISO } from "../../utils/date";
 export const StaffAnalysisTab = () => {
   const [from, setFrom] = useState(daysAgoISO(29));
   const [to, setTo] = useState(todayISO());
+  const win = useSessionWindow();
+  useEffect(() => { setFrom(win.fromDays(29)); setTo(win.last); }, [win.yearId, win.last]); // eslint-disable-line
   const [data, setData] = useState({ teachers: [], trend: [] });
   const [loading, setLoading] = useState(false);
 
@@ -83,7 +86,7 @@ export const StaffAnalysisTab = () => {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-              <XAxis dataKey="day" tick={{ fill: C.textMuted, fontSize: 11 }} />
+              <XAxis dataKey="date" tickFormatter={shortDate} minTickGap={14} tick={{ fill: C.textMuted, fontSize: 11 }} />
               <YAxis
                 domain={[0, 100]}
                 tick={{ fill: C.textMuted, fontSize: 10 }}

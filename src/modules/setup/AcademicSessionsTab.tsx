@@ -26,13 +26,14 @@ export const COPY_ITEMS = [
   { key: "teacher_assignments", label: "Subject teachers", hint: "Teacher for each section and subject" },
   { key: "timetable", label: "Weekly timetable", hint: "Needs the subjects of each section" },
   { key: "fee_structures", label: "Fee structures", hint: "Same amounts - edit them later if fees change" },
+  { key: "transport", label: "Bus routes & stops", hint: "Students keep their bus route and stop when they are promoted" },
 ];
 export const DEFAULT_COPY = {
-  sections: true, class_teachers: true, section_subjects: true, teacher_assignments: true, timetable: false, fee_structures: true,
+  sections: true, class_teachers: true, section_subjects: true, teacher_assignments: true, timetable: false, fee_structures: true, transport: true,
 };
 const LABELS = {
   sections: "sections", class_teachers: "class teachers", section_subjects: "subject links",
-  teacher_assignments: "subject teachers", timetable: "timetable periods", fee_structures: "fee structures",
+  teacher_assignments: "subject teachers", timetable: "timetable periods", fee_structures: "fee structures", transport: "bus routes",
 };
 export const copySummary = (copied) => {
   const parts = Object.entries(copied || {}).map(([k, n]) => `${n} ${LABELS[k] || k}`);
@@ -159,6 +160,17 @@ export const AcademicSessionsTab = () => {
   const [counts, setCounts] = useState(null);
   const [copyTarget, setCopyTarget] = useState(null);
 
+  // A locked session is closed: marks, attendance, timetable and fee structures of it cannot be changed
+  const toggleLock = async (y) => {
+    const lock = !y.is_locked;
+    const ok = window.confirm(lock
+      ? `Lock "${y.name}"?\nMarks, attendance, timetable and fee structures of this session can no longer be edited.`
+      : `Unlock "${y.name}"? Its data can be edited again.`);
+    if (!ok) return;
+    try { await apiRequest(`/setup/academic-years/${y.id}/lock`, "PUT", { locked: lock }); await reloadAcademicYears(); }
+    catch (err) { alert("Error: " + err.message); }
+  };
+
   // Next session starts the day after the latest one ends and runs for the same length
   const suggestNext = () => {
     const latest = academicYears.reduce((m, y) => (!m || ymd(y.end_date) > ymd(m.end_date) ? y : m), null);
@@ -270,6 +282,9 @@ export const AcademicSessionsTab = () => {
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 {y.is_current && <span className="badge badge-green">Current</span>}
                 {y.is_locked && <span className="badge badge-yellow">Locked</span>}
+                {!y.is_current && (
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => toggleLock(y)}>{y.is_locked ? "Unlock" : "Lock"}</button>
+                )}
                 {!y.is_locked && academicYears.length > 1 && (
                   <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setCopyTarget(y)}>
                     Copy structure

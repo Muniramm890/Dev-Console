@@ -5,11 +5,14 @@ import { useDialog } from "../../contexts/DialogContext";
 import { openGeneratedPdf } from "../../utils/fetchDoc";
 import { RegisterGrid } from "./RegisterGrid";
 import { todayISO } from "../../utils/date";
+import { shortDate, useSessionWindow } from "./useSessionWindow";
 
 // Teachers: monthly attendance register of all teaching staff (reuses GET /attendance/staff/analysis?month=)
 export const StaffRegisterTab = () => {
-  const maxMonth = todayISO().slice(0, 7);
+  const win = useSessionWindow();
+  const maxMonth = win.last.slice(0, 7);
   const [month, setMonth] = useState(maxMonth);
+  useEffect(() => { setMonth(win.last.slice(0, 7)); }, [win.yearId, win.last]); // eslint-disable-line
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const seq = useRef(0);

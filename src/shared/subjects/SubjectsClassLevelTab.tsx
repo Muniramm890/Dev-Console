@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
 import { FormRow } from "../../components/ui/FormRow";
 import { useDialog } from "../../contexts/DialogContext";
+import { useSession } from "../../contexts/SessionContext";
 import { C } from "../../theme/theme";
 
 const up = (v) => String(v).toUpperCase();
@@ -18,6 +19,7 @@ const sameSets = (m, secs) => {
 export const SubjectsClassLevelTab = ({ grades, subjects }) => {
   const { dialogAlert, dialogConfirm } = useDialog();
   const [gradeId, setGradeId] = useState("");
+  const { academicYearId } = useSession(); // sections of the session picked in the top bar
   const [sections, setSections] = useState([]);
   const [map, setMap] = useState({}); // SECTION_ID -> Set(SUBJECT_ID) as saved
   const [view, setView] = useState("class"); // "class" or a section id
@@ -33,7 +35,7 @@ export const SubjectsClassLevelTab = ({ grades, subjects }) => {
     setLoading(true);
     try {
       const [sRes, yRes, mRes] = await Promise.all([
-        apiRequest(`/setup/sections?grade_id=${gradeId}`),
+        apiRequest(`/setup/sections?grade_id=${gradeId}${academicYearId ? `&academic_year_id=${academicYearId}` : ""}`),
         apiRequest("/setup/academic-years").catch(() => ({ data: [] })),
         apiRequest(`/setup/section-subjects?grade_id=${gradeId}`),
       ]);
@@ -50,7 +52,7 @@ export const SubjectsClassLevelTab = ({ grades, subjects }) => {
       console.error(e); setSections([]); setMap({}); setSelected(new Set());
     } finally { setLoading(false); }
   };
-  useEffect(() => { setView("class"); load(); }, [gradeId]); // eslint-disable-line
+  useEffect(() => { setView("class"); load(); }, [gradeId, academicYearId]); // eslint-disable-line
 
   const pick = (v) => { setView(v); setSelected(v === "class" ? unionOf(map, sections) : new Set(map[up(v)] || [])); };
   const toggle = (id) => setSelected((prev) => { const n = new Set(prev); const k = up(id); if (n.has(k)) n.delete(k); else n.add(k); return n; });

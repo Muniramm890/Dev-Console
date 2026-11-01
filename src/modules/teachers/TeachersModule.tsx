@@ -198,6 +198,11 @@ export const TeachersModule = () => {
       alert("Full name and email are required.");
       return;
     }
+    // new teachers need a phone number (it must be unique per user); on edit an empty phone keeps the current one
+    if (modal !== "edit" && !/^\+?\d{10,15}$/.test(String(form.phone || "").replace(/[\s\-()]/g, ""))) {
+      alert("Enter a valid phone number (10-15 digits).");
+      return;
+    }
     setSaving(true);
     try {
       if (modal === "edit" && selected?.user_id) {
@@ -644,7 +649,7 @@ export const TeachersModule = () => {
             <FF
               form={form}
               setF={setF}
-              label="Phone / WhatsApp"
+              label={modal === "edit" ? "Phone / WhatsApp" : "Phone / WhatsApp *"}
               name="phone"
               type="tel"
             />

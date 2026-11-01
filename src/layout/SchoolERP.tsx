@@ -32,6 +32,7 @@ const SetupModule = lazy(() => import("../modules/setup/SetupModule").then((m) =
 const StudentsModule = lazy(() => import("../modules/students/StudentsModule").then((m) => ({ default: m.StudentsModule })));
 const TeachersModule = lazy(() => import("../modules/teachers/TeachersModule").then((m) => ({ default: m.TeachersModule })));
 const TestsModule = lazy(() => import("../modules/tests/TestsModule").then((m) => ({ default: m.TestsModule })));
+const QuickTest2Module = lazy(() => import("../modules/tests2/QuickTest2Module").then((m) => ({ default: m.QuickTest2Module })));
 const TimetableModule = lazy(() => import("../modules/timetable/TimetableModule").then((m) => ({ default: m.TimetableModule })));
 const TransportModule = lazy(() => import("../modules/transport/TransportModule").then((m) => ({ default: m.TransportModule })));
 const UserManagementModule = lazy(() => import("../modules/usermanagement/UserManagementModule").then((m) => ({ default: m.UserManagementModule })));
@@ -186,6 +187,8 @@ export const SchoolERP = () => {
         return <TimetableModule />;
       case "tests":
           return <TestsModule school={school} />;
+      case "tests2":
+          return <QuickTest2Module school={school} />;
       case "homework":
           return <HomeworkModule school={school} />;
       case "usermanagement":

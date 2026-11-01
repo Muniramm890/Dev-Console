@@ -1,4 +1,4 @@
-// FILE: teacher-app/src/modules/setup/DailyRoutineBuilder.tsx
+// FILE: src/modules/timetable/DailyRoutineBuilder.tsx
 // Source: admin App.tsx -> DailyRoutineBuilder [5158-5319]
 // @ts-nocheck
 import { useEffect, useState } from "react";
@@ -110,6 +110,18 @@ export const DailyRoutineBuilder = ({ periods, onSaved }) => {
       <p style={{ fontSize: 12, color: C.textMuted, marginBottom: 16 }}>
         Define your school's full day: assembly, periods, lunch, breaks — in order.
       </p>
+
+      {rows.length > 0 && (() => {
+        const teaching = rows.filter((r) => !r.is_break);
+        const mins = (t) => { const m = /^(\d{2}):(\d{2})/.exec(t || ""); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+        const d0 = teaching[0] && mins(teaching[0].start_time) != null && mins(teaching[0].end_time) != null ? mins(teaching[0].end_time) - mins(teaching[0].start_time) : null;
+        return (
+          <div style={{ padding: "9px 12px", borderRadius: 10, background: C.surfaceAlt, border: `1px solid ${C.border}`, fontSize: 12, color: C.textMuted, marginBottom: 14 }}>
+            <b style={{ color: C.text }}>School day:</b> {rows[0].start_time || "--:--"} – {rows[rows.length - 1].end_time || "--:--"} · {teaching.length} period{teaching.length === 1 ? "" : "s"}{d0 > 0 ? ` · ${d0} min each` : ""}
+            <span> — saved to your school profile when you press Save.</span>
+          </div>
+        );
+      })()}
 
       {rows.length === 0 ? (
         <div style={{ padding: "20px 16px", background: C.surfaceAlt, borderRadius: 12, marginBottom: 16 }}>

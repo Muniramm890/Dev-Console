@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
 import { C } from "../../theme/theme";
 import { daysAgoISO, todayISO } from "../../utils/date";
+import { shortDate, useSessionWindow } from "./useSessionWindow";
 import { STAFF_STATUS_KEYS as STATUS_KEYS, STAFF_STATUS_META as STATUS_META } from "../../utils/status";
 
 // ═══════════════════════════════════════════════════════════════
@@ -15,6 +16,8 @@ export const StaffIndividualTab = () => {
   const [userId, setUserId] = useState("");
   const [from, setFrom] = useState(daysAgoISO(29));
   const [to, setTo] = useState(todayISO());
+  const win = useSessionWindow();
+  useEffect(() => { setFrom(win.fromDays(29)); setTo(win.last); }, [win.yearId, win.last]); // eslint-disable-line
   const [history, setHistory] = useState({
     records: [],
     counts: {},

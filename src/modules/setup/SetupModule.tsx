@@ -11,6 +11,7 @@ import { Modal } from "../../components/ui/Modal";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { useSession } from "../../contexts/SessionContext";
 import { AcademicSessionsTab } from "./AcademicSessionsTab";
+import { IdentityTab } from "./IdentityTab";
 import { WhatsAppTab } from "./WhatsAppTab";
 import { SchoolSubjectsTab } from "../../shared/subjects/SchoolSubjectsTab";
 import { SubjectsClassLevelTab } from "../../shared/subjects/SubjectsClassLevelTab";
@@ -22,7 +23,8 @@ import { C } from "../../theme/theme";
 
 
 export const SetupModule = () => {
-  const { academicYears, reloadAcademicYears, setAcademicYearId } = useSession();
+  const { academicYears, academicYearId, sessionLoading, reloadAcademicYears, setAcademicYearId } = useSession();
+  const selectedYear = academicYears.find((y) => y.id === academicYearId);
   const [tab, setTab] = useState("identity"); // 'identity', 'sessions', 'classes', 'sections', 'subjects'
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -71,11 +73,12 @@ export const SetupModule = () => {
   const fetchSetupData = React.useCallback(
     async ({ showLoader = false } = {}) => {
       if (showLoader) setLoading(true);
+      const yq = academicYearId ? `?academic_year_id=${academicYearId}` : ""; // classes + sections of the session picked in the top bar
       try {
         const [schRes, grRes, secRes, subRes] = await Promise.all([
           apiRequest("/setup/school", "GET").catch(() => ({ data: {} })),
-          apiRequest("/setup/grades", "GET").catch(() => ({ data: [] })),
-          apiRequest("/setup/sections", "GET").catch(() => ({ data: [] })),
+          apiRequest(`/setup/grades${yq}`, "GET").catch(() => ({ data: [] })),
+          apiRequest(`/setup/sections${yq}`, "GET").catch(() => ({ data: [] })),
           apiRequest("/setup/subjects", "GET").catch(() => ({ data: [] })),
         ]);
 
@@ -89,47 +92,56 @@ export const SetupModule = () => {
         if (showLoader) setLoading(false);
       }
     },
-    []
+    [academicYearId]
   );
 
-  // Initial load on mount
+  // load on mount and whenever the top-bar session changes
   useEffect(() => {
+    if (sessionLoading) return;
     fetchSetupData({ showLoader: true });
-   }, [fetchSetupData]);
+   }, [fetchSetupData, sessionLoading]);
 
   // 🔥 2. Handler to Save Deep School Config (unchanged — this one never reloaded)
   const handleSaveSchool = async () => {
     setSaving(true);
     try {
+      const d = schoolData;
+      if (d.pincode && !/^\d{6}$/.test(String(d.pincode).trim())) return alert("Pincode must be 6 digits.");
+      if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(d.email).trim())) return alert("Official email is not valid.");
+      if (d.brand_color && !/^#[0-9a-fA-F]{6}$/.test(String(d.brand_color).trim())) return alert("Brand colour must look like #E8600A.");
+      if (!String(d.name || "").trim()) return alert("School name is required.");
       const payload = {
-        name: schoolData.name,
-        tagline: schoolData.tagline,
-        established_year: schoolData.established_year,
-        principal_name: schoolData.principal_name,
-        affiliation_board: schoolData.affiliation_board,
-        affiliation_no: schoolData.affiliation_no,
-        udise_code: schoolData.udise_code,
-        logo_url: schoolData.logo_url,
-        brand_color: schoolData.brand_color,
+        name: d.name,
+        tagline: d.tagline,
+        established_year: d.established_year,
+        principal_name: d.principal_name,
+        principal_signature_url: d.principal_signature_url,
+        affiliation_board: d.affiliation_board,
+        affiliation_no: d.affiliation_no,
+        udise_code: d.udise_code,
+        logo_url: d.logo_url,
+        watermark_url: d.watermark_url,
+        brand_color: d.brand_color,
 
-        address_line1: schoolData.address_line1,
-        address_line2: schoolData.address_line2,
-        city: schoolData.city,
-        state: schoolData.state,
-        pincode: schoolData.pincode,
-        website: schoolData.website,
-        phone: schoolData.phone,
-        email: schoolData.email,
+        address_line1: d.address_line1,
+        address_line2: d.address_line2,
+        city: d.city,
+        state: d.state,
+        pincode: d.pincode,
+        country: d.country,
+        website: d.website,
+        phone: d.phone,
+        email: d.email,
 
-        academic_year_start: schoolData.academic_year_start,
-        academic_year_end: schoolData.academic_year_end,
-        school_start_time: schoolData.school_start_time,
-        school_end_time: schoolData.school_end_time,
-        periods_per_day: schoolData.periods_per_day,
-        period_duration_min: schoolData.period_duration_min,
+        timezone: d.timezone,
+        working_days: d.working_days,
+        academic_year_start: d.academic_year_start,
+        academic_year_end: d.academic_year_end,
+        // school_start_time / school_end_time / periods_per_day / period_duration_min are set by Timetable -> Daily Routine
       };
 
       await apiRequest("/setup/school", "PUT", payload);
+      await fetchSetupData(); // show exactly what the server stored
       alert("✅ School configuration updated successfully!");
     } catch (err) {
       alert("❌ Failed to update: " + err.message);
@@ -166,9 +178,9 @@ export const SetupModule = () => {
   // ✅ FIXED: no more window.location.reload()
   const handleCreateSection = async () => {
     try {
-      const currentYear =
-        academicYears.find((y) => y.is_current) || academicYears[0];
-      const payload = { ...sectionForm, academic_year_id: currentYear?.id };
+      // new sections are created in the session selected in the top bar
+      const targetYear = selectedYear || academicYears.find((y) => y.is_current) || academicYears[0];
+      const payload = { ...sectionForm, academic_year_id: targetYear?.id };
 
       if (!payload.grade_id) return alert("Please select a Grade/Class");
       if (!payload.name?.trim()) return alert("Section name is required.");
@@ -296,12 +308,12 @@ export const SetupModule = () => {
       >
         {[
           { id: "identity", label: "Identity & Branding" },
+          { id: "whatsapp", label: "Integrations" }, // same tab as before (WhatsApp, email ... later); not session dependent, so it sits next to Identity
           { id: "sessions", label: "Academic Sessions" },
           { id: "classes", label: "Class Hierarchy" },
           { id: "sections", label: "Sections" },
           { id: "school-subjects", label: "School Subjects" },
           { id: "subjects", label: "Subjects & Curriculum" },
-          { id: "whatsapp", label: "WhatsApp" },
         ].map((t) => (
           <button
             key={t.id}
@@ -318,331 +330,7 @@ export const SetupModule = () => {
       {/* 1. IDENTITY & CONTACT TAB */}
       {/* ──────────────────────────────────────────────────────────── */}
       {tab === "identity" && (
-        <div>
-          <div
-            className="grid-2"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 20,
-              marginBottom: 20,
-            }}
-          >
-            {/* Core Details */}
-            <div className="card">
-              <h3
-                className="syne"
-                style={{
-                  fontSize: 15,
-                  fontWeight: 700,
-                  marginBottom: 16,
-                  color: C.primary,
-                }}
-              >
-                <Icon name="setup" size={16} /> Core Identity
-              </h3>
-              <FormRow label="School / Institution Name">
-                <input
-                  className="input"
-                  value={schoolData.name || ""}
-                  onChange={(e) =>
-                    setSchoolData({ ...schoolData, name: e.target.value })
-                  }
-                />
-              </FormRow>
-              <FormGrid>
-                <FormRow label="Established Year">
-                  <input
-                    className="input"
-                    type="number"
-                    placeholder="e.g. 1998"
-                    value={schoolData.established_year || ""}
-                    onChange={(e) =>
-                      setSchoolData({
-                        ...schoolData,
-                        established_year: e.target.value,
-                      })
-                    }
-                  />
-                </FormRow>
-                <FormRow label="Principal / Head Name">
-                  <input
-                    className="input"
-                    value={schoolData.principal_name || ""}
-                    onChange={(e) =>
-                      setSchoolData({
-                        ...schoolData,
-                        principal_name: e.target.value,
-                      })
-                    }
-                  />
-                </FormRow>
-              </FormGrid>
-              <FormRow label="Tagline / Motto">
-                <input
-                  className="input"
-                  placeholder="Illuminating Futures..."
-                  value={schoolData.tagline || ""}
-                  onChange={(e) =>
-                    setSchoolData({ ...schoolData, tagline: e.target.value })
-                  }
-                />
-              </FormRow>
-              <FormGrid>
-                <FormRow label="Affiliation Board">
-                  <select
-                    className="select"
-                    value={schoolData.affiliation_board || ""}
-                    onChange={(e) =>
-                      setSchoolData({
-                        ...schoolData,
-                        affiliation_board: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="">-- Select --</option>
-                    <option value="CBSE">CBSE</option>
-                    <option value="ICSE">ICSE</option>
-                    <option value="STATE">State Board</option>
-                    <option value="IB">IB / Cambridge</option>
-                  </select>
-                </FormRow>
-                <FormRow label="Affiliation / Reg No.">
-                  <input
-                    className="input"
-                    value={schoolData.affiliation_no || ""}
-                    onChange={(e) =>
-                      setSchoolData({
-                        ...schoolData,
-                        affiliation_no: e.target.value,
-                      })
-                    }
-                  />
-                </FormRow>
-              </FormGrid>
-              <FormGrid>
-                <FormRow label="School Logo">
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    {schoolData.logo_url && (
-                      <img src={schoolData.logo_url} alt="Logo" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "contain", background: C.surfaceAlt, border: `1px solid ${C.border}` }} />
-                    )}
-                    <input type="file" id="logo-upload" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const fd = new FormData();
-                      fd.append("file", file);
-                      fd.append("type", "logo");
-                      try {
-                        const res = await apiRequest("/setup/school/upload-asset", "POST", fd, true);
-                        setSchoolData((p) => ({ ...p, logo_url: res.data.url }));
-                      } catch (err) { alert("Upload failed: " + err.message); }
-                    }} />
-                    <label htmlFor="logo-upload" className="btn btn-ghost" style={{ cursor: "pointer", fontSize: 12 }}>
-                      <Icon name="plus" size={12} /> Upload Logo
-                    </label>
-                  </div>
-                </FormRow>
-                <FormRow label="Watermark (for receipts/documents)">
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    {schoolData.watermark_url && (
-                      <img src={schoolData.watermark_url} alt="Watermark" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "contain", background: C.surfaceAlt, border: `1px solid ${C.border}` }} />
-                    )}
-                    <input type="file" id="watermark-upload" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const fd = new FormData();
-                      fd.append("file", file);
-                      fd.append("type", "watermark");
-                      try {
-                        const res = await apiRequest("/setup/school/upload-asset", "POST", fd, true);
-                        setSchoolData((p) => ({ ...p, watermark_url: res.data.url }));
-                      } catch (err) { alert("Upload failed: " + err.message); }
-                    }} />
-                    <label htmlFor="watermark-upload" className="btn btn-ghost" style={{ cursor: "pointer", fontSize: 12 }}>
-                      <Icon name="plus" size={12} /> Upload Watermark
-                    </label>
-                  </div>
-                </FormRow>
-              </FormGrid>
-
-              <FormGrid>
-                <FormRow label="UDISE Code (Govt)">
-            
-                  <input
-                    className="input"
-                    value={schoolData.udise_code || ""}
-                    onChange={(e) =>
-                      setSchoolData({
-                        ...schoolData,
-                        udise_code: e.target.value,
-                      })
-                    }
-                  />
-                </FormRow>
-                <FormRow label="ERP Brand Color">
-                  <div
-                    style={{ display: "flex", gap: 10, alignItems: "center" }}
-                  >
-                    <input
-                      type="color"
-                      value={schoolData.brand_color || "#E8600A"}
-                      onChange={(e) =>
-                        setSchoolData({
-                          ...schoolData,
-                          brand_color: e.target.value,
-                        })
-                      }
-                      style={{
-                        width: 45,
-                        height: 38,
-                        borderRadius: 8,
-                        border: `1px solid ${C.border}`,
-                        background: "transparent",
-                        cursor: "pointer",
-                      }}
-                    />
-                    <input
-                      className="input"
-                      value={schoolData.brand_color || "#E8600A"}
-                      onChange={(e) =>
-                        setSchoolData({
-                          ...schoolData,
-                          brand_color: e.target.value,
-                        })
-                      }
-                      style={{ flex: 1 }}
-                    />
-                  </div>
-                </FormRow>
-              </FormGrid>
-            </div>
-
-            {/* Reachability */}
-            <div className="card">
-              <h3
-                className="syne"
-                style={{
-                  fontSize: 15,
-                  fontWeight: 700,
-                  marginBottom: 16,
-                  color: C.blue,
-                }}
-              >
-                <Icon name="user" size={16} /> Contact & Reachability
-              </h3>
-              <FormRow label="Primary Campus Address">
-                <input
-                  className="input"
-                  value={schoolData.address_line1 || ""}
-                  onChange={(e) =>
-                    setSchoolData({
-                      ...schoolData,
-                      address_line1: e.target.value,
-                    })
-                  }
-                />
-              </FormRow>
-              <FormRow label="Address Line 2 (Optional)">
-                <input
-                  className="input"
-                  value={schoolData.address_line2 || ""}
-                  onChange={(e) =>
-                    setSchoolData({
-                      ...schoolData,
-                      address_line2: e.target.value,
-                    })
-                  }
-                />
-              </FormRow>
-              <FormGrid>
-                <FormRow label="City">
-                  <input
-                    className="input"
-                    value={schoolData.city || ""}
-                    onChange={(e) =>
-                      setSchoolData({ ...schoolData, city: e.target.value })
-                    }
-                  />
-                </FormRow>
-                <FormRow label="State">
-                  <input
-                    className="input"
-                    value={schoolData.state || ""}
-                    onChange={(e) =>
-                      setSchoolData({ ...schoolData, state: e.target.value })
-                    }
-                  />
-                </FormRow>
-              </FormGrid>
-              <FormGrid>
-                <FormRow label="Pincode / ZIP">
-                  <input
-                    className="input"
-                    value={schoolData.pincode || ""}
-                    onChange={(e) =>
-                      setSchoolData({ ...schoolData, pincode: e.target.value })
-                    }
-                  />
-                </FormRow>
-                <FormRow label="Official Phone">
-                  <input
-                    className="input"
-                    value={schoolData.phone || ""}
-                    onChange={(e) =>
-                      setSchoolData({ ...schoolData, phone: e.target.value })
-                    }
-                  />
-                </FormRow>
-              </FormGrid>
-              <FormGrid>
-                <FormRow label="Official Email">
-                  <input
-                    className="input"
-                    type="email"
-                    value={schoolData.email || ""}
-                    onChange={(e) =>
-                      setSchoolData({ ...schoolData, email: e.target.value })
-                    }
-                  />
-                </FormRow>
-                <FormRow label="Website Domain">
-                  <input
-                    className="input"
-                    placeholder="www.school.com"
-                    value={schoolData.website || ""}
-                    onChange={(e) =>
-                      setSchoolData({ ...schoolData, website: e.target.value })
-                    }
-                  />
-                </FormRow>
-              </FormGrid>
-            </div>
-          </div>
-
-          {/* Action Footer */}
-          <div
-            className="card"
-            style={{
-              background: C.surfaceAlt,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "16px 24px",
-            }}
-          >
-            <div style={{ fontSize: 13, color: C.textMuted }}>
-              Review all details carefully before saving.
-            </div>
-            <button
-              className="btn btn-primary"
-              style={{ minWidth: 200, opacity: saving ? 0.7 : 1 }}
-              onClick={handleSaveSchool}
-              disabled={saving}
-            >
-              {saving ? "Updating ERP Core..." : "Save Identity Changes"}
-            </button>
-          </div>
-        </div>
+        <IdentityTab schoolData={schoolData} setSchoolData={setSchoolData} saving={saving} onSave={handleSaveSchool} />
       )}
 
       {/* ──────────────────────────────────────────────────────────── */}
@@ -654,6 +342,12 @@ export const SetupModule = () => {
       {/* ──────────────────────────────────────────────────────────── */}
       {/* 3. GRADES / CLASSES TAB */}
       {/* ──────────────────────────────────────────────────────────── */}
+      {(tab === "classes" || tab === "sections") && selectedYear && (
+        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 12 }}>
+          Showing classes and sections of <b style={{ color: C.text }}>{selectedYear.name}</b>{selectedYear.is_locked ? " (locked)" : ""}. Change the session from the top bar.
+        </div>
+      )}
+
       {tab === "classes" && (
         <div className="card">
           {grades.length === 0 ? (

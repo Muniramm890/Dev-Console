@@ -9,6 +9,7 @@ import { KpiCard } from "../../components/ui/KpiCard";
 import { ClassAttendanceBoxes } from "./ClassAttendanceBoxes";
 import { C } from "../../theme/theme";
 import { daysAgoISO, todayISO } from "../../utils/date";
+import { shortDate, useSessionWindow } from "./useSessionWindow";
 import { STATUS_KEYS, STATUS_META } from "../../utils/status";
 
 // ═══════════════════════════════════════════════════════════════
@@ -19,6 +20,8 @@ export const StudentSchoolOverviewTab = () => {
   const [date, setDate] = useState(todayISO());
   const [from, setFrom] = useState(daysAgoISO(6));
   const [to, setTo] = useState(todayISO());
+  const win = useSessionWindow();
+  useEffect(() => { setDate(win.last); setFrom(win.fromDays(6)); setTo(win.last); }, [win.yearId, win.last]); // eslint-disable-line
   const [data, setData] = useState({ today: {}, gradeWise: [], trend: [] });
   const [loading, setLoading] = useState(false);
 
@@ -40,6 +43,21 @@ export const StudentSchoolOverviewTab = () => {
   }, [date, from, to, currentYear?.id]); // eslint-disable-line
 
   const t = data.today || {};
+  // Context for the KPI numbers: "35 present" means little if only one class has been marked so far.
+  const boxClasses = Array.isArray(data.classes) ? data.classes : [];
+  const boxPending = Array.isArray(data.pending) ? data.pending : [];
+  const markedTotal = boxClasses.length ? boxClasses.reduce((a, c) => a + (Number(c.total) || 0), 0) : Number(t.total) || 0;
+  const enrolledTotal = boxClasses.reduce((a, c) => a + (Number(c.enrolled) || 0), 0) + boxPending.reduce((a, c) => a + (Number(c.enrolled) || 0), 0);
+  const kpiSub = loading ? undefined : (
+    <>
+      {markedTotal === 0
+        ? (enrolledTotal > 0 ? `Not marked yet · ${enrolledTotal} enrolled` : "No attendance marked")
+        : enrolledTotal > markedTotal ? `of ${markedTotal} marked · ${enrolledTotal} enrolled` : `of ${markedTotal} students`}
+      {boxPending.length > 0 && (
+        <><br />{boxClasses.length} of {boxClasses.length + boxPending.length} classes marked</>
+      )}
+    </>
+  );
   const pieData = STATUS_KEYS.map((s) => ({
     name: STATUS_META[s].label,
     value:
@@ -151,13 +169,12 @@ export const StudentSchoolOverviewTab = () => {
                       : "od"
                   ] || 0
             }
+            sub={kpiSub}
             icon={s === "P" ? "check" : s === "A" ? "warning" : "attendance"}
             color={STATUS_META[s].color}
           />
         ))}
       </div>
-
-      <ClassAttendanceBoxes date={date} data={data} loading={loading} onReload={load} />
 
       <div
         className="grid-2"
@@ -184,7 +201,7 @@ export const StudentSchoolOverviewTab = () => {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-              <XAxis dataKey="day" tick={{ fill: C.textMuted, fontSize: 11 }} />
+              <XAxis dataKey="date" tickFormatter={shortDate} minTickGap={14} tick={{ fill: C.textMuted, fontSize: 11 }} />
               <YAxis
                 domain={[0, 100]}
                 tick={{ fill: C.textMuted, fontSize: 10 }}
@@ -265,6 +282,8 @@ export const StudentSchoolOverviewTab = () => {
           )}
         </div>
       </div>
+
+      <ClassAttendanceBoxes date={date} data={data} loading={loading} onReload={load} />
 
       <div className="card">
         <h3

@@ -22,7 +22,6 @@ import { C } from "../theme/theme";
 
 const clearSchoolSession = () => { ["erp_token", "erp_academic_year_id", "erp_driver_mode"].forEach((k) => localStorage.removeItem(k)); };
 
-const API_HOST = String((import.meta.env && import.meta.env.VITE_API_URL) || "https://schoolofficeapp-dzh7bebpefdqbvcn.centralindia-01.azurewebsites.net/api").replace(/^https?:\/\//, "").split(".")[0];
 
 // 24x24 stroke icons
 const ICON = {
@@ -129,36 +128,34 @@ export const DevApp = () => {
     profile: [["Account"], ["Profile"]],
   })[name] || [["Console"]];
   const initial = String(me?.name || me?.email || "?").trim().charAt(0).toUpperCase();
-  const edge = { background: C.surface, borderColor: C.border };
+  // colours come from the same theme as the Admin app (also used by its .sidebar-link / .sidebar-group classes)
+  const theme = { "--p": C.primary, "--pt": C.primaryText || C.primary, "--sa": C.surfaceAlt, "--sf": C.surface, "--tm": C.textMuted, "--tx": C.text, "--bd": C.border, color: C.text };
 
   return (
-    <div className="dx-app">
-      <header className="dx-top" style={edge}>
+    <div className="dx-app" style={theme}>
+      <header className="dx-top">
         <button className="dx-icon" onClick={toggleSide} title="Toggle menu" aria-label="Toggle menu"><Ico n="menu" size={19} /></button>
-        <img src="/favicon.svg" className="dx-logo" alt="" />
-        <b className="syne dx-brand">School Office</b><span className="dx-sep" /><span className="dx-env">Developer Console</span>
         <nav className="dx-crumbs">
           {crumbs.map(([l, v], i) => {
             const last = i === crumbs.length - 1;
             return (
-              <span key={i} className={last ? "last" : "extra"} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              <span key={i} className={last ? "last" : "extra"}>
                 {i > 0 && <span className="sl">/</span>}
-                {v && !last ? <a onClick={() => go(v)}>{l}</a> : <span style={{ opacity: last ? 1 : 0.7 }}>{l}</span>}
+                {v && !last ? <a onClick={() => go(v)}>{l}</a> : <span>{l}</span>}
               </span>
             );
           })}
         </nav>
         <button className="dx-search" onClick={() => setSearching(true)} title="Search (Ctrl K or /)"><Ico n="search" size={15} /><span>Search schools, staff, students</span><kbd>Ctrl K</kbd></button>
-        <span className="dx-envchip" title={`API: ${API_HOST}`}><i />{API_HOST}</span>
         <div className="dx-user">
           <button className="dx-avatar" onClick={() => setUserMenu((u) => !u)} title={me?.email || "Account"}>{initial}</button>
           {userMenu && (
             <>
               <div style={{ position: "fixed", inset: 0, zIndex: 80 }} onClick={() => setUserMenu(false)} />
-              <div className="dx-menu" style={edge}>
+              <div className="dx-menu">
                 <div className="who"><b>{me?.name || "Developer"}</b><br />{me?.email}</div>
-                <button className="dx-item" onClick={() => go("profile")}><Ico n="user" /><span>Profile</span></button>
-                <button className="dx-item" style={{ color: C.red }} onClick={logout}><Ico n="logout" /><span>Logout</span></button>
+                <button className="sidebar-link" onClick={() => go("profile")}><Ico n="user" /><span>Profile</span></button>
+                <button className="sidebar-link" style={{ color: C.red }} onClick={logout}><Ico n="logout" /><span>Logout</span></button>
               </div>
             </>
           )}
@@ -166,29 +163,36 @@ export const DevApp = () => {
       </header>
 
       <div className="dx-body">
-        <aside className={`dx-side${collapsed ? " collapsed" : ""}${menu ? " open" : ""}`} style={edge}>
-          <button className="btn btn-primary dx-new" onClick={() => go("new")} title="New school"><Ico n="plus" size={15} /><span className="dx-lbl">New school</span></button>
-          {NAV.map((g) => (
-            <div key={g.group}>
-              <div className="dx-group">{g.group}</div>
-              {g.items.map((it) => {
-                const on = active(it.id);
-                return (
-                  <div key={it.id}>
-                    <button className={`dx-item${on ? " on" : ""}`} title={it.label} onClick={() => go(it.id)}><Ico n={it.icon} /><span className="dx-lbl">{it.label}</span></button>
-                    {it.children && on && !collapsed && (
-                      <div className="dx-sub">
-                        {it.children.map(([k, l]) => <button key={k} className={`dx-subitem${waTab === k ? " on" : ""}`} onClick={() => go(`${it.id}@${k}${id ? `:${id}` : ""}`)}>{l}</button>)}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-          <div style={{ flex: 1 }} />
-          <button className="dx-item" title="Search" onClick={() => { setSearching(true); setMenu(false); }}><Ico n="search" /><span className="dx-lbl">Search</span></button>
-          <button className={`dx-item${name === "profile" ? " on" : ""}`} title="Profile" onClick={() => go("profile")}><Ico n="user" /><span className="dx-lbl">Profile</span></button>
+        <aside className={`dx-side${collapsed ? " collapsed" : ""}${menu ? " open" : ""}`}>
+          <div className="dx-brand" onClick={() => go("schools")} title="Schools">
+            <img src="/favicon.svg" alt="" />
+            <div className="dx-lbl"><div className="syne t">School Office</div><div className="s">Developer Console</div></div>
+          </div>
+          <div className="dx-nav">
+            <button className="btn btn-primary dx-new" onClick={() => go("new")} title="New school"><Ico n="plus" size={15} /><span className="dx-lbl">New school</span></button>
+            {NAV.map((g) => (
+              <div key={g.group}>
+                <div className="sidebar-group dx-lbl">{g.group}</div>
+                {g.items.map((it) => {
+                  const on = active(it.id);
+                  return (
+                    <div key={it.id}>
+                      <button className={`sidebar-link${on ? " active" : ""}`} title={it.label} onClick={() => go(it.id)}><Ico n={it.icon} /><span className="dx-lbl">{it.label}</span></button>
+                      {it.children && on && !collapsed && (
+                        <div className="dx-sub">
+                          {it.children.map(([k, l]) => <button key={k} className={`dx-subitem${waTab === k ? " on" : ""}`} onClick={() => go(`${it.id}@${k}${id ? `:${id}` : ""}`)}>{l}</button>)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <div className="dx-foot">
+            <button className="sidebar-link" title="Search" onClick={() => { setSearching(true); setMenu(false); }}><Ico n="search" /><span className="dx-lbl">Search</span></button>
+            <button className={`sidebar-link${name === "profile" ? " active" : ""}`} title="Profile" onClick={() => go("profile")}><Ico n="user" /><span className="dx-lbl">Profile</span></button>
+          </div>
         </aside>
         <div className={`dx-scrim${menu ? " open" : ""}`} onClick={() => setMenu(false)} />
 

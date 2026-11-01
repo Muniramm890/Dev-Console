@@ -7,6 +7,7 @@ import { apiRequest } from "../../api/client";
 import { useGradesAndSections } from "./useGradesAndSections";
 import { C } from "../../theme/theme";
 import { daysAgoISO, todayISO } from "../../utils/date";
+import { shortDate, useSessionWindow } from "./useSessionWindow";
 import { STATUS_META } from "../../utils/status";
 
 // ═══════════════════════════════════════════════════════════════
@@ -18,6 +19,8 @@ export const StudentClassAnalysisTab = () => {
   const [sectionId, setSectionId] = useState("");
   const [from, setFrom] = useState(daysAgoISO(29));
   const [to, setTo] = useState(todayISO());
+  const win = useSessionWindow();
+  useEffect(() => { setFrom(win.fromDays(29)); setTo(win.last); }, [win.yearId, win.last]); // eslint-disable-line
   const [data, setData] = useState({ students: [], trend: [] });
   const [loading, setLoading] = useState(false);
 
@@ -134,7 +137,7 @@ export const StudentClassAnalysisTab = () => {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-              <XAxis dataKey="date" tick={{ fill: C.textMuted, fontSize: 9 }} />
+              <XAxis dataKey="date" tickFormatter={shortDate} minTickGap={14} tick={{ fill: C.textMuted, fontSize: 10 }} />
               <YAxis
                 domain={[0, 100]}
                 tick={{ fill: C.textMuted, fontSize: 10 }}

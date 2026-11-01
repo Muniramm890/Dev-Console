@@ -18,6 +18,7 @@ export const NAV_ITEMS = [
       { id: "attendance", label: "Attendance", icon: "attendance" },
       { id: "homework", label: "Homework", icon: "homework" },
       { id: "tests", label: "Quick Tests", icon: "zap" },
+      { id: "tests2", label: "Quick Test 2.0", icon: "zap" },
       { id: "timetable", label: "Timetable", icon: "schedule" },
       { id: "calendar", label: "Calendar", icon: "calendar" },
       { id: "arrangement", label: "Substitution", icon: "swap" },
