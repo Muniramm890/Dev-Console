@@ -24,7 +24,7 @@ const Soon = () => <span className="dc-chip" style={{ background: `${C.yellow}22
 const EMPTY = { month: "", purpose: "", status: "", via: "", q: "" };
 
 // ---------- school picker (search platform schools) ----------
-const SchoolList = ({ onPick }) => {
+export const SchoolList = ({ onPick }) => {
   const [q, setQ] = useState("");
   const l = useLoad(() => papi(`/schools?q=${encodeURIComponent(q)}&limit=12`), [q]);
   return (

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useState } from "react";
+import { SchoolBilling } from "./SchoolBilling";
 import { papi, explain, toast, ago } from "../api";
 import { Chip, Modal, Field, CopyBox, useLoad } from "../ui";
 import { healthFlags, pct } from "../health";
@@ -12,12 +13,12 @@ const Usage = ({ label, n, max }) => {
   return (<div style={{ marginBottom: 10 }}><div className="dc-row" style={{ justifyContent: "space-between", fontSize: 13 }}><span>{label}</span><b>{n}{max != null ? ` / ${max}` : " (no limit)"}</b></div>
     <div className="dc-bar"><i style={{ width: `${max ? p : 8}%`, background: col, opacity: max ? 1 : 0.35 }} /></div></div>);
 };
-const TABS = [["overview", "Overview"], ["users", "Users"], ["plan", "Plan & limits"], ["modules", "Modules"], ["activity", "Activity"], ["settings", "Settings"]];
+const TABS = [["overview", "Overview"], ["users", "Users"], ["billing", "Billing"], ["plan", "Plan & limits"], ["modules", "Modules"], ["activity", "Activity"], ["settings", "Settings"]];
 
-export const SchoolDetail = ({ id, go, onOpen }) => {
+export const SchoolDetail = ({ id, go, onOpen, tab: tabProp }) => {
   const d = useLoad(() => papi(`/schools/${id}`), [id]);
   const audit = useLoad(() => papi(`/audit?school_id=${id}&limit=40`), [id]);
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState(tabProp || "overview");
   const [modal, setModal] = useState(null);
   const [reason, setReason] = useState(""); const [message, setMessage] = useState(""); const [confirm, setConfirm] = useState("");
   const [form, setForm] = useState(null); const [mods, setMods] = useState(null); const [busy, setBusy] = useState(false); const [uq, setUq] = useState("");
@@ -99,6 +100,7 @@ export const SchoolDetail = ({ id, go, onOpen }) => {
           {!users.loading && !(users.data || []).length && <p style={{ color: C.textMuted }}>No users found.</p>}
         </Section>)}
 
+      {tab === "billing" && <SchoolBilling id={id} go={go} />}
       {tab === "plan" && (
         <div className="dc-split">
           <Section title="Validity">
