@@ -12,11 +12,12 @@ import { SectionHeader } from "../../components/ui/SectionHeader";
 import { useDialog } from "../../contexts/DialogContext";
 import { AUDIT_ACTION_META, getAuditMeta } from "./helpers";
 import { WhatsAppLogsTab } from "./WhatsAppLogsTab";
+import { EmailLogsTab } from "./EmailLogsTab";
 import { C } from "../../theme/theme";
 
 export const AuditLogModule = () => {
   const { dialogAlert, dialogConfirm } = useDialog();
-  const [tab, setTab] = useState("system"); // 'system' | 'whatsapp' | 'razorpay'
+  const [tab, setTab] = useState("system"); // 'system' | 'whatsapp' | 'email' | 'razorpay'
 
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +92,7 @@ export const AuditLogModule = () => {
         {[
           { id: "system", label: "System Activity" },
           { id: "whatsapp", label: "WhatsApp Logs" },
+          { id: "email", label: "Email Logs" },
           { id: "razorpay", label: "Razorpay Logs", soon: true },
         ].map((t) => (
           <button key={t.id} className={`tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)} style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -102,6 +104,8 @@ export const AuditLogModule = () => {
 
       {tab === "whatsapp" ? (
         <WhatsAppLogsTab />
+      ) : tab === "email" ? (
+        <EmailLogsTab />
       ) : tab !== "system" ? (
         <div className="card" style={{ padding: 50, textAlign: "center" }}>
           <div style={{ fontSize: 44, marginBottom: 12 }}>{tab === "whatsapp" ? "💬" : "💳"}</div>

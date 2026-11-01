@@ -8,6 +8,7 @@ import { useDialog } from "../../contexts/DialogContext";
 import { C } from "../../theme/theme";
 import { useGradesAndSections } from "../attendance/useGradesAndSections";
 import { cbt, unwrap, useSubjects } from "./cbtApi";
+import { CodeImportModal, PromptModal } from "./CodeImportModal";
 import { QuestionEditor } from "./QuestionEditor";
 import { RichText } from "./RichText";
 import { TEMPLATE_ROWS, TYPES, csvToQuestions, downloadCsv, qs, questionRef, typeShort } from "./helpers";
@@ -185,6 +186,8 @@ export const QuestionBankTab = () => {
   const { dialogConfirm, dialogAlert } = useDialog();
   const [editor, setEditor] = useState({ open: false, id: null });
   const [bulk, setBulk] = useState(false);
+  const [code, setCode] = useState(false);
+  const [prompt, setPrompt] = useState(false);
   const [tick, setTick] = useState(0);
   const del = async (q) => {
     if (!(await dialogConfirm("Delete this question? Tests that already use it keep their copy.", "Delete question"))) return;
@@ -193,12 +196,16 @@ export const QuestionBankTab = () => {
   return (
     <div>
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginBottom: 14, flexWrap: "wrap" }}>
+        <button className="btn btn-ghost" onClick={() => setPrompt(true)}><Icon name="book" size={14} /> AI prompt</button>
+        <button className="btn btn-ghost" onClick={() => setCode(true)}><Icon name="file" size={14} /> Import from code</button>
         <button className="btn btn-ghost" onClick={() => setBulk(true)}><Icon name="upload" size={14} /> Bulk import</button>
         <button className="btn btn-primary" onClick={() => setEditor({ open: true, id: null })}><Icon name="plus" size={14} /> New question</button>
       </div>
       <QuestionList reloadKey={tick} onEdit={(q) => setEditor({ open: true, id: q.id })} onDelete={del} />
       <QuestionEditor open={editor.open} questionId={editor.id} onClose={() => setEditor({ open: false, id: null })} onSaved={() => setTick((v) => v + 1)} />
       <BulkImport open={bulk} onClose={() => setBulk(false)} onDone={() => setTick((v) => v + 1)} />
+      <CodeImportModal open={code} onClose={() => setCode(false)} onDone={() => setTick((v) => v + 1)} />
+      <PromptModal open={prompt} onClose={() => setPrompt(false)} />
     </div>
   );
 };

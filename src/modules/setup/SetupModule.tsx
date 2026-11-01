@@ -13,6 +13,7 @@ import { useSession } from "../../contexts/SessionContext";
 import { AcademicSessionsTab } from "./AcademicSessionsTab";
 import { IdentityTab } from "./IdentityTab";
 import { WhatsAppTab } from "./WhatsAppTab";
+import { BillingTab } from "./BillingTab";
 import { SchoolSubjectsTab } from "../../shared/subjects/SchoolSubjectsTab";
 import { SubjectsClassLevelTab } from "../../shared/subjects/SubjectsClassLevelTab";
 import { C } from "../../theme/theme";
@@ -308,6 +309,7 @@ export const SetupModule = () => {
       >
         {[
           { id: "identity", label: "Identity & Branding" },
+          { id: "billing", label: "Plan & Billing" },
           { id: "whatsapp", label: "Integrations" }, // same tab as before (WhatsApp, email ... later); not session dependent, so it sits next to Identity
           { id: "sessions", label: "Academic Sessions" },
           { id: "classes", label: "Class Hierarchy" },
@@ -338,6 +340,7 @@ export const SetupModule = () => {
       {/* ──────────────────────────────────────────────────────────── */}
       {tab === "sessions" && <AcademicSessionsTab />}
       {tab === "whatsapp" && <WhatsAppTab />}
+      {tab === "billing" && <BillingTab />}
 
       {/* ──────────────────────────────────────────────────────────── */}
       {/* 3. GRADES / CLASSES TAB */}

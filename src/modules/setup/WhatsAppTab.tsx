@@ -1,5 +1,5 @@
 // @ts-nocheck
-// Setup -> WhatsApp: view / add the school's own WhatsApp Business number.
+// Setup -> Integrations: school's own WhatsApp Business number + the school's email sender (SendGrid).
 // Add-once: after saving, the school cannot edit or delete it (School Office updates it from the Dev Console).
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "../../api/client";
@@ -38,6 +38,124 @@ const Upcoming = ({ title, text }) => (
     <div style={{ fontSize: 12.5, color: C.textMuted, lineHeight: 1.6 }}>{text}</div>
   </div>
 );
+
+
+const EMAIL_STATUS = {
+  verified: { label: "Verified", cls: "badge-green" },
+  pending: { label: "Verification pending", cls: "badge-yellow" },
+  not_set: { label: "Not added", cls: "badge-blue" },
+};
+
+// Email sender: school adds its address -> verification link goes to that inbox -> "Check status" -> all school emails go from it.
+// Until verified (or if it ever fails) emails are sent from the School Office default address.
+const EmailSenderCard = () => {
+  const { dialogAlert, dialogConfirm } = useDialog();
+  const [info, setInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState("");
+
+  const load = async () => {
+    setLoading(true); setError("");
+    try { setInfo((await apiRequest("/whatsapp/email"))?.data || null); }
+    catch (e) { setError(e?.message || "Could not load email settings."); } finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const run = async (key, fn, okTitle = "Email") => {
+    setBusy(key);
+    try { const res = await fn(); if (res?.data) setInfo(res.data); if (res?.message) await dialogAlert(res.message, okTitle); return true; }
+    catch (e) { await dialogAlert(e?.message || "Something went wrong.", "Email"); return false; }
+    finally { setBusy(""); }
+  };
+
+  const add = async () => {
+    const em = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { await dialogAlert("Please enter a valid email address.", "Missing details"); return; }
+    const ok = await run("add", () => apiRequest("/whatsapp/email", "POST", { email: em, name: name.trim() }));
+    if (ok) { setShowAdd(false); setEmail(""); setName(""); }
+  };
+  const remove = async () => {
+    const yes = await dialogConfirm("Remove this sender? Emails will go from the School Office default address.", "Remove email");
+    if (yes) await run("remove", () => apiRequest("/whatsapp/email", "DELETE"));
+  };
+
+  const st = EMAIL_STATUS[info?.status] || EMAIL_STATUS.not_set;
+  const has = info && info.status !== "not_set";
+
+  return (
+    <div className="card" style={{ marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 10, flexWrap: "wrap" }}>
+        <h3 className="syne" style={{ fontSize: 14, fontWeight: 700 }}>School Email (Sender)</h3>
+        {!loading && !error && (
+          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => { setEmail(has ? info.email : ""); setName(has ? info.name || "" : ""); setShowAdd(true); }}>
+            <Icon name={has ? "edit" : "plus"} size={13} /> {has ? "Change Email" : "Add Email"}
+          </button>
+        )}
+      </div>
+      <div style={{ fontSize: 12.5, color: C.textMuted, lineHeight: 1.6, marginBottom: 6 }}>
+        Fee receipts, notices and alerts are emailed to parents and staff. Add your school's email address to send them from your own address.
+      </div>
+
+      {loading ? (
+        <div className="pulse" style={{ padding: 24, textAlign: "center", color: C.primary, fontWeight: 600 }}>Loading...</div>
+      ) : error ? (
+        <div style={{ color: C.red, fontSize: 13 }}>{error}</div>
+      ) : (
+        <>
+          <Row label="Email">{info?.email || "-"}</Row>
+          {has && info.name && <Row label="Sender name">{info.name}</Row>}
+          <Row label="Status"><span className={`badge ${st.cls}`}>{st.label}</span></Row>
+          <Row label="Emails are sent from">{info?.sending_from === "own_email" ? "Your own email" : `School Office default${info?.default_from ? ` (${info.default_from})` : ""}`}</Row>
+
+          {info?.status === "pending" && (
+            <div style={{ marginTop: 14, fontSize: 12.5, color: C.textMuted, lineHeight: 1.6, background: `${C.yellow}14`, borderRadius: 10, padding: "10px 14px" }}>
+              {info.note || "A verification link has been sent to this address. Open it, then press Check status."}
+              <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                <button className="btn btn-primary" style={{ fontSize: 12 }} disabled={!!busy} onClick={() => run("refresh", () => apiRequest("/whatsapp/email/refresh", "POST"))}>{busy === "refresh" ? "Checking..." : "Check status"}</button>
+                <button className="btn btn-ghost" style={{ fontSize: 12 }} disabled={!!busy} onClick={() => run("resend", () => apiRequest("/whatsapp/email/resend", "POST"))}>{busy === "resend" ? "Sending..." : "Resend link"}</button>
+              </div>
+            </div>
+          )}
+          {info?.status === "verified" && (
+            <div style={{ marginTop: 14, fontSize: 12.5, color: C.textMuted, lineHeight: 1.6, background: `${C.green}14`, borderRadius: 10, padding: "10px 14px" }}>
+              All school emails are sent from this address. If it ever fails, the School Office default address is used automatically.
+            </div>
+          )}
+          {!has && (
+            <div style={{ marginTop: 14, fontSize: 12.5, color: C.textMuted, lineHeight: 1.6 }}>
+              No email added yet. Emails are currently sent from the School Office default address.
+            </div>
+          )}
+          {has && (
+            <div style={{ marginTop: 12 }}>
+              <button className="btn btn-danger" style={{ fontSize: 12 }} disabled={!!busy} onClick={remove}>{busy === "remove" ? "Removing..." : "Remove email"}</button>
+            </div>
+          )}
+        </>
+      )}
+
+      <Modal open={showAdd} onClose={() => busy !== "add" && setShowAdd(false)} title={has ? "Change Email" : "Add Email"} width={460}>
+        <FormRow label="Sender email address">
+          <input className="input" type="email" inputMode="email" placeholder="e.g. office@yourschool.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </FormRow>
+        <FormRow label="Sender name (shown to parents)">
+          <input className="input" placeholder="e.g. ABC Public School" value={name} onChange={(e) => setName(e.target.value)} />
+        </FormRow>
+        <div style={{ fontSize: 12, color: C.yellow, background: `${C.yellow}14`, borderRadius: 10, padding: "9px 12px", lineHeight: 1.6, marginBottom: 14 }}>
+          A verification link will be sent to this address. Use an inbox you can open. Emails switch to this address only after you verify it.
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button className="btn btn-ghost" style={{ flex: 1 }} disabled={busy === "add"} onClick={() => setShowAdd(false)}>Cancel</button>
+          <button className="btn btn-primary" style={{ flex: 1, opacity: busy === "add" ? 0.7 : 1 }} disabled={busy === "add"} onClick={add}>{busy === "add" ? "Saving..." : "Save & Send Link"}</button>
+        </div>
+      </Modal>
+    </div>
+  );
+};
 
 export const WhatsAppTab = () => {
   const { dialogAlert } = useDialog();
@@ -120,8 +238,9 @@ export const WhatsAppTab = () => {
         </div>
       )}
 
+      <EmailSenderCard />
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 }}>
-        <Upcoming title="Email" text="Send receipts and notices from your own email address." />
         <Upcoming title="Payment Gateways" text="Connect your own payment gateway account for fee collection." />
       </div>
 
