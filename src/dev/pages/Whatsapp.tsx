@@ -578,8 +578,10 @@ const Webhook = ({ school, setSchool }) => {
 };
 
 // ---------- page ----------
-export const WhatsappPage = ({ focusId }) => {
-  const [tab, setTab] = useState(focusId ? "numbers" : "overview");
+export const WhatsappPage = ({ focusId, tab: tabProp, onTab }) => {
+  const [tabLocal, setTabLocal] = useState(focusId ? "numbers" : "overview");
+  const tab = tabProp || tabLocal;
+  const setTab = (k) => { setTabLocal(k); if (onTab) onTab(k); };
   const [f, setF] = useState(EMPTY);
   const [school, setSchool] = useState(focusId ? { id: focusId, name: "School" } : null);
   useEffect(() => { if (focusId) papi(`/schools/${focusId}`).then((s) => setSchool({ id: focusId, name: s?.name || "School" })).catch(() => {}); }, [focusId]);

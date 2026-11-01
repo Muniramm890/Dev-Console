@@ -1,8 +1,9 @@
 // @ts-nocheck
-// Developer Console shell. Two modes:
-//   console  - platform login + sidebar: Schools, WhatsApp (Meta), Audit, Notices, Search, Profile
-//   school   - the unchanged Admin app (src/App.tsx) running on a short-lived "act as" token issued by the backend
-import { useCallback, useEffect, useState } from "react";
+// Developer Console shell (Azure-portal style): slim top bar (brand, breadcrumbs, global search, env, profile menu)
+// + collapsible side navigation grouped by area + an independently scrolling content area.
+//   console - platform login, then the pages below
+//   school  - the unchanged Admin app (src/App.tsx) running on a short-lived "act as" token issued by the backend
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 import AdminApp from "../App";
 import { getToken, setToken, papi, explain, toast } from "./api";
@@ -17,15 +18,34 @@ import { WhatsappPage } from "./pages/Whatsapp";
 import { ProfilePage } from "./pages/Profile";
 import { SearchModal } from "./pages/Search";
 import { DevPanel, OpenSchoolModal } from "./DevPanel";
-import { DevSidebar, NAV_TITLES } from "./DevSidebar";
-import { Icon } from "../components/ui/Icon";
-import { useIsMobile } from "../hooks/useIsMobile";
-import { C, applyTheme, getSavedTheme } from "../theme/theme";
+import { C } from "../theme/theme";
 
 const clearSchoolSession = () => { ["erp_token", "erp_academic_year_id", "erp_driver_mode"].forEach((k) => localStorage.removeItem(k)); };
 
-const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
-const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } };
+const API_HOST = String((import.meta.env && import.meta.env.VITE_API_URL) || "https://schoolofficeapp-dzh7bebpefdqbvcn.centralindia-01.azurewebsites.net/api").replace(/^https?:\/\//, "").split(".")[0];
+
+// 24x24 stroke icons
+const ICON = {
+  menu: "M3 6h18M3 12h18M3 18h18",
+  school: "M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6",
+  chat: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+  audit: "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM8 12h8M8 16h5",
+  bell: "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0",
+  user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+  search: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM21 21l-4.35-4.35",
+  plus: "M12 5v14M5 12h14",
+  logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
+};
+const Ico = ({ n, size = 17 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={ICON[n]} /></svg>
+);
+
+const WA_TABS = [["overview", "Overview"], ["numbers", "School numbers"], ["logs", "Message log"], ["webhook", "Webhook"]];
+const NAV = [
+  { group: "Platform", items: [{ id: "schools", label: "Schools", icon: "school" }] },
+  { group: "Messaging", items: [{ id: "whatsapp", label: "WhatsApp (Meta)", icon: "chat", children: WA_TABS }] },
+  { group: "Monitoring", items: [{ id: "audit", label: "Audit", icon: "audit" }, { id: "announcements", label: "Notices", icon: "bell" }] },
+];
 
 export const DevApp = () => {
   const [authed, setAuthed] = useState(!!getToken());
@@ -37,9 +57,9 @@ export const DevApp = () => {
   const [searching, setSearching] = useState(false);
   const [me, setMe] = useState(null);
   const [menu, setMenu] = useState(false);
-  const [collapsed, setCollapsed] = useState(lsGet("dc_side_collapsed", "0") === "1");
-  const [themeMode, setThemeMode] = useState(getSavedTheme());
-  const mobile = useIsMobile(860);
+  const [userMenu, setUserMenu] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem("dc_side_collapsed") === "1"; } catch (e) { return false; } });
+  const mainRef = useRef(null);
 
   const exit = useCallback((msg) => { clearSchoolSession(); window.__DEV_CONSOLE__ = null; setActing(null); if (msg) toast(msg); }, []);
   const enter = useCallback(async (school, { write, reason }) => {
@@ -53,11 +73,6 @@ export const DevApp = () => {
     } catch (e) { toast(explain(e), "err"); throw e; }
   }, [exit]);
 
-  useEffect(() => { applyTheme(getSavedTheme()); }, []);
-  useEffect(() => {
-    const k = (e) => { if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === "k") { e.preventDefault(); setSearching(true); } };
-    window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
-  }, []);
   useEffect(() => { clearSchoolSession(); }, []); // never keep a school token from an earlier visit
   useEffect(() => {
     const out = () => { setAuthed(false); exit(); };
@@ -67,6 +82,17 @@ export const DevApp = () => {
     if (!getToken()) return;
     papi("/auth/me").then((m) => { setMe(m); setMustChange(!!m.must_change_password); setAuthed(true); }).catch(() => setAuthed(false)).finally(() => setBooting(false));
   }, []);
+  // Ctrl/Cmd+K or "/" opens global search (console only, never inside a school)
+  useEffect(() => {
+    if (!authed || acting) return undefined;
+    const h = (e) => {
+      const t = e.target; const typing = t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
+      if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === "k") { e.preventDefault(); setSearching(true); }
+      else if (e.key === "/" && !typing) { e.preventDefault(); setSearching(true); }
+      else if (e.key === "Escape") { setUserMenu(false); setMenu(false); }
+    };
+    window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h);
+  }, [authed, acting]);
 
   if (booting) return <div style={{ padding: 40, textAlign: "center", color: C.textMuted }}>Loading...</div>;
   if (!authed) return (<><DevLogin onDone={(mc) => { setAuthed(true); setMustChange(!!mc); papi("/auth/me").then(setMe).catch(() => {}); }} /><Toasts /></>);
@@ -81,44 +107,104 @@ export const DevApp = () => {
     </>
   );
 
-  const [name, id] = String(view).split(":");
-  const go = (v) => { setView(v); setMenu(false); try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } };
+  // view = "name[@tab][:id]"   e.g.  schools | school:<id> | whatsapp@webhook | whatsapp@numbers:<schoolId>
+  const [head, id] = String(view).split(":");
+  const [name, sub] = head.split("@");
+  const waTab = sub || (id ? "numbers" : "overview");
+  const go = (v) => { setView(v); setMenu(false); setUserMenu(false); if (mainRef.current) mainRef.current.scrollTop = 0; };
   const active = (n) => name === n || (n === "schools" && (name === "school" || name === "new"));
-  const logout = () => { setToken(null); setAuthed(false); setMe(null); };
-  const toggleCollapsed = () => setCollapsed((c) => { lsSet("dc_side_collapsed", c ? "0" : "1"); return !c; });
-  const toggleTheme = () => { const next = themeMode === "dark" ? "light" : "dark"; applyTheme(next); setThemeMode(next); };
-  const crumbs = name === "school" ? ["Schools", "Details"] : name === "new" ? ["Schools", "New school"] : [NAV_TITLES[name] || ""];
+  const logout = () => { setToken(null); setAuthed(false); setMe(null); setUserMenu(false); };
+  const toggleSide = () => {
+    if (window.matchMedia && window.matchMedia("(max-width: 860px)").matches) { setMenu((m) => !m); return; }
+    setCollapsed((c) => { const n = !c; try { localStorage.setItem("dc_side_collapsed", n ? "1" : "0"); } catch (e) { /* ignore */ } return n; });
+  };
+
+  const crumbs = ({
+    schools: [["Platform"], ["Schools"]],
+    school: [["Platform"], ["Schools", "schools"], ["School details"]],
+    new: [["Platform"], ["Schools", "schools"], ["New school"]],
+    whatsapp: [["Messaging"], ["WhatsApp (Meta)", "whatsapp"], [(WA_TABS.find((t) => t[0] === waTab) || [])[1] || "Overview"]],
+    audit: [["Monitoring"], ["Audit"]],
+    announcements: [["Monitoring"], ["Notices"]],
+    profile: [["Account"], ["Profile"]],
+  })[name] || [["Console"]];
+  const initial = String(me?.name || me?.email || "?").trim().charAt(0).toUpperCase();
+  const edge = { background: C.surface, borderColor: C.border };
+
   return (
-    <div className="dc-shell" style={{ background: C.bg, color: C.text }}>
-      <DevSidebar
-        active={active("schools") ? (name === "new" ? "new" : "schools") : name}
-        onNav={go} collapsed={collapsed} onToggle={toggleCollapsed}
-        mobile={mobile} open={menu} onClose={() => setMenu(false)}
-        me={me} onSearch={() => setSearching(true)} themeMode={themeMode} onTheme={toggleTheme}
-      />
-      {mobile && <div className={`dc-scrim${menu ? " open" : ""}`} onClick={() => setMenu(false)} />}
-      <div className="dc-main">
-        <div className="dc-top" style={{ background: `${C.bg}e6`, borderBottom: `1px solid ${C.border}` }}>
-          {mobile
-            ? <button className="btn btn-ghost" style={{ padding: "7px 9px" }} onClick={() => setMenu(true)} aria-label="Open menu"><Icon name="menu" size={18} /></button>
-            : <button className="btn btn-ghost" style={{ padding: "7px 9px" }} onClick={toggleCollapsed} aria-label="Toggle sidebar"><Icon name="menu" size={18} /></button>}
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="dc-crumb">{crumbs.map((c, i) => <span key={i}>{i > 0 && <span style={{ opacity: .5 }}> / </span>}{c}</span>)}</div>
-            <b className="syne" style={{ fontSize: 16 }}>{crumbs[crumbs.length - 1]}</b>
+    <div className="dx-app">
+      <header className="dx-top" style={edge}>
+        <button className="dx-icon" onClick={toggleSide} title="Toggle menu" aria-label="Toggle menu"><Ico n="menu" size={19} /></button>
+        <img src="/favicon.svg" className="dx-logo" alt="" />
+        <b className="syne dx-brand">School Office</b><span className="dx-sep" /><span className="dx-env">Developer Console</span>
+        <nav className="dx-crumbs">
+          {crumbs.map(([l, v], i) => {
+            const last = i === crumbs.length - 1;
+            return (
+              <span key={i} className={last ? "last" : "extra"} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                {i > 0 && <span className="sl">/</span>}
+                {v && !last ? <a onClick={() => go(v)}>{l}</a> : <span style={{ opacity: last ? 1 : 0.7 }}>{l}</span>}
+              </span>
+            );
+          })}
+        </nav>
+        <button className="dx-search" onClick={() => setSearching(true)} title="Search (Ctrl K or /)"><Ico n="search" size={15} /><span>Search schools, staff, students</span><kbd>Ctrl K</kbd></button>
+        <span className="dx-envchip" title={`API: ${API_HOST}`}><i />{API_HOST}</span>
+        <div className="dx-user">
+          <button className="dx-avatar" onClick={() => setUserMenu((u) => !u)} title={me?.email || "Account"}>{initial}</button>
+          {userMenu && (
+            <>
+              <div style={{ position: "fixed", inset: 0, zIndex: 80 }} onClick={() => setUserMenu(false)} />
+              <div className="dx-menu" style={edge}>
+                <div className="who"><b>{me?.name || "Developer"}</b><br />{me?.email}</div>
+                <button className="dx-item" onClick={() => go("profile")}><Ico n="user" /><span>Profile</span></button>
+                <button className="dx-item" style={{ color: C.red }} onClick={logout}><Ico n="logout" /><span>Logout</span></button>
+              </div>
+            </>
+          )}
+        </div>
+      </header>
+
+      <div className="dx-body">
+        <aside className={`dx-side${collapsed ? " collapsed" : ""}${menu ? " open" : ""}`} style={edge}>
+          <button className="btn btn-primary dx-new" onClick={() => go("new")} title="New school"><Ico n="plus" size={15} /><span className="dx-lbl">New school</span></button>
+          {NAV.map((g) => (
+            <div key={g.group}>
+              <div className="dx-group">{g.group}</div>
+              {g.items.map((it) => {
+                const on = active(it.id);
+                return (
+                  <div key={it.id}>
+                    <button className={`dx-item${on ? " on" : ""}`} title={it.label} onClick={() => go(it.id)}><Ico n={it.icon} /><span className="dx-lbl">{it.label}</span></button>
+                    {it.children && on && !collapsed && (
+                      <div className="dx-sub">
+                        {it.children.map(([k, l]) => <button key={k} className={`dx-subitem${waTab === k ? " on" : ""}`} onClick={() => go(`${it.id}@${k}${id ? `:${id}` : ""}`)}>{l}</button>)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          <div style={{ flex: 1 }} />
+          <button className="dx-item" title="Search" onClick={() => { setSearching(true); setMenu(false); }}><Ico n="search" /><span className="dx-lbl">Search</span></button>
+          <button className={`dx-item${name === "profile" ? " on" : ""}`} title="Profile" onClick={() => go("profile")}><Ico n="user" /><span className="dx-lbl">Profile</span></button>
+        </aside>
+        <div className={`dx-scrim${menu ? " open" : ""}`} onClick={() => setMenu(false)} />
+
+        <main className="dx-main" ref={mainRef}>
+          <div className="dc-wrap">
+            {name === "schools" && <SchoolsPage go={go} onOpen={setAsk} />}
+            {name === "school" && <SchoolDetail id={id} go={go} onOpen={setAsk} />}
+            {name === "new" && <NewSchool go={go} />}
+            {name === "whatsapp" && <WhatsappPage key={id || "all"} focusId={id} tab={sub} onTab={(k) => go(`whatsapp@${k}${id ? `:${id}` : ""}`)} />}
+            {name === "audit" && <AuditPage />}
+            {name === "announcements" && <AnnouncementsPage />}
+            {name === "profile" && <ProfilePage me={me} onLogout={logout} />}
           </div>
-          <button className="btn btn-ghost" style={{ padding: "7px 10px", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setSearching(true)}><Icon name="search" size={15} />{!mobile && <span>Search</span>}</button>
-          <button className="btn btn-ghost" style={{ padding: "7px 9px" }} onClick={toggleTheme} aria-label="Toggle theme"><Icon name={themeMode === "dark" ? "sun" : "moon"} size={16} /></button>
-        </div>
-        <div className="dc-wrap">
-          {name === "schools" && <SchoolsPage go={go} onOpen={setAsk} />}
-          {name === "school" && <SchoolDetail id={id} go={go} onOpen={setAsk} />}
-          {name === "new" && <NewSchool go={go} />}
-          {name === "whatsapp" && <WhatsappPage key={id || "all"} focusId={id} />}
-          {name === "audit" && <AuditPage />}
-          {name === "announcements" && <AnnouncementsPage />}
-          {name === "profile" && <ProfilePage me={me} onLogout={logout} />}
-        </div>
+        </main>
       </div>
+
       {searching && <SearchModal onClose={() => setSearching(false)} go={go} onOpen={setAsk} />}
       {ask && <OpenSchoolModal school={ask} onClose={() => setAsk(null)} onOpen={enter} />}
       <Toasts />
