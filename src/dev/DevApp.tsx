@@ -16,6 +16,7 @@ import { AuditPage } from "./pages/Audit";
 import { AnnouncementsPage } from "./pages/Announcements";
 import { WhatsappPage } from "./pages/Whatsapp";
 import { BillingPage } from "./pages/Billing";
+import { PaymentsPage } from "./pages/Payments";
 import { ProfilePage } from "./pages/Profile";
 import { SearchModal } from "./pages/Search";
 import { DevPanel, OpenSchoolModal } from "./DevPanel";
@@ -35,6 +36,7 @@ const ICON = {
   search: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM21 21l-4.35-4.35",
   plus: "M12 5v14M5 12h14",
   bill: "M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM2 10h20M6 15h4",
+  pay: "M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
   logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
 };
 const Ico = ({ n, size = 17 }) => (
@@ -42,12 +44,13 @@ const Ico = ({ n, size = 17 }) => (
 );
 
 const WA_TABS = [["overview", "Overview"], ["numbers", "School numbers"], ["logs", "Message log"], ["webhook", "Webhook"]];
+const PAY_TABS = [["overview", "Overview"], ["events", "Events"]];
 const BILL_TABS = [["overview", "Overview"], ["plans", "Plans"], ["invoices", "Invoices"], ["settings", "Rates & charges"]];
 const NAV = [
   { group: "Platform", items: [{ id: "schools", label: "Schools", icon: "school" }] },
   { group: "Messaging", items: [{ id: "whatsapp", label: "WhatsApp (Meta)", icon: "chat", children: WA_TABS }] },
   { group: "Billing", items: [{ id: "billing", label: "Plans & billing", icon: "bill", children: BILL_TABS }] },
-  { group: "Monitoring", items: [{ id: "audit", label: "Audit", icon: "audit" }, { id: "announcements", label: "Notices", icon: "bell" }] },
+  { group: "Monitoring", items: [{ id: "payments", label: "Gateway payments", icon: "pay", children: PAY_TABS }, { id: "audit", label: "Audit", icon: "audit" }, { id: "announcements", label: "Notices", icon: "bell" }] },
 ];
 
 export const DevApp = () => {
@@ -128,6 +131,7 @@ export const DevApp = () => {
     new: [["Platform"], ["Schools", "schools"], ["New school"]],
     whatsapp: [["Messaging"], ["WhatsApp (Meta)", "whatsapp"], [(WA_TABS.find((t) => t[0] === waTab) || [])[1] || "Overview"]],
     billing: [["Billing"], ["Plans & billing", "billing"], [(BILL_TABS.find((t) => t[0] === waTab) || [])[1] || "Overview"]],
+    payments: [["Monitoring"], ["Gateway payments", "payments"], [(PAY_TABS.find((t) => t[0] === waTab) || [])[1] || "Overview"]],
     audit: [["Monitoring"], ["Audit"]],
     announcements: [["Monitoring"], ["Notices"]],
     profile: [["Account"], ["Profile"]],
@@ -206,6 +210,7 @@ export const DevApp = () => {
             {name === "schools" && <SchoolsPage go={go} onOpen={setAsk} />}
             {name === "school" && <SchoolDetail key={`${id}-${sub || ""}`} id={id} tab={sub} go={go} onOpen={setAsk} />}
             {name === "billing" && <BillingPage tab={sub} onTab={(k) => go(`billing@${k}`)} go={go} />}
+            {name === "payments" && <PaymentsPage tab={sub} onTab={(k) => go(`payments@${k}`)} />}
             {name === "new" && <NewSchool go={go} />}
             {name === "whatsapp" && <WhatsappPage key={id || "all"} focusId={id} tab={sub} onTab={(k) => go(`whatsapp@${k}${id ? `:${id}` : ""}`)} />}
             {name === "audit" && <AuditPage />}

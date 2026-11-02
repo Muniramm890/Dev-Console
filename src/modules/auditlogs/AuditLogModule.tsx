@@ -13,6 +13,7 @@ import { useDialog } from "../../contexts/DialogContext";
 import { AUDIT_ACTION_META, getAuditMeta } from "./helpers";
 import { WhatsAppLogsTab } from "./WhatsAppLogsTab";
 import { EmailLogsTab } from "./EmailLogsTab";
+import { PaymentLogsTab } from "./PaymentLogsTab";
 import { C } from "../../theme/theme";
 
 export const AuditLogModule = () => {
@@ -93,7 +94,7 @@ export const AuditLogModule = () => {
           { id: "system", label: "System Activity" },
           { id: "whatsapp", label: "WhatsApp Logs" },
           { id: "email", label: "Email Logs" },
-          { id: "razorpay", label: "Razorpay Logs", soon: true },
+          { id: "payments", label: "Payment Logs" },
         ].map((t) => (
           <button key={t.id} className={`tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)} style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {t.label}
@@ -106,6 +107,8 @@ export const AuditLogModule = () => {
         <WhatsAppLogsTab />
       ) : tab === "email" ? (
         <EmailLogsTab />
+      ) : tab === "payments" ? (
+        <PaymentLogsTab />
       ) : tab !== "system" ? (
         <div className="card" style={{ padding: 50, textAlign: "center" }}>
           <div style={{ fontSize: 44, marginBottom: 12 }}>{tab === "whatsapp" ? "💬" : "💳"}</div>

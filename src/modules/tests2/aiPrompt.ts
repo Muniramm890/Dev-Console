@@ -8,9 +8,11 @@ export const buildAiPrompt = ({ classNames = [], subjectNames = [] } = {}) => {
 OUTPUT RULES
 - Reply with ONE code block of plain JavaScript data and nothing else (no explanation before or after).
 - The block has exactly two parts: const testDetails = {...}; and const mockQuestions = [...];
-- Use "double quotes" for all text. Never use backticks. No trailing explanations inside strings.
+- Use "double quotes" for all text. Never use backticks. No comments in the final code.
 - Write maths in LaTeX between $ signs and DOUBLE every backslash, e.g. "Solve $\\\\frac{x}{2} = 4$".
 - Questions must be correct, clear and suitable for the class. Add a short explanation for every question.
+- Total marks of all questions must be more than passMarks. A PASSAGE item has no marks (marks belong to its questions).
+- difficulty is a number from 1 (very easy) to 5 (very hard). negativeMarks (optional) can be given per question.
 
 const testDetails = {
   testName: "Chapter 3 - Linear Equations",
@@ -37,8 +39,10 @@ const mockQuestions = [
   { type: "TF", text: "The Sun is a star.", correct: true, marks: 1, explanation: "The Sun is a star." },
   // FIB: fill in the blank, list every accepted answer.
   { type: "FIB", text: "The capital of India is ____.", answers: ["New Delhi", "Delhi"], marks: 1 },
+  // FIB: set caseSensitive: true only if capital letters matter.
   // NUM: numeric answer, with tolerance (or min and max).
   { type: "NUM", text: "Value of pi up to two decimals?", value: 3.14, tolerance: 0.01, marks: 1 },
+  { type: "NUM", text: "Roughly how many days are in a year?", min: 365, max: 366, marks: 1 },
   // SHORT / LONG: written answers that the teacher marks. modelAnswer is only for the teacher.
   { type: "SHORT", text: "Define a variable.", modelAnswer: "A symbol that stands for an unknown number.", marks: 2 },
   { type: "LONG", text: "Explain how to solve $2x + 3 = 11$.", modelAnswer: "Subtract 3 then divide by 2: x = 4.", marks: 5 },
@@ -50,8 +54,13 @@ const mockQuestions = [
 ];
 
 IMAGES (optional)
-- Only add an image if you really have a public link: image: "https://..." for a question, or options: [{ text: "A", image: "https://..." }, ...] for options. Never invent links.
-- A data:image/png;base64,... string is also accepted.
+- Use an image only if you really have a public link that opens a PNG, JPG or WebP picture. Never invent links. If you are not sure, leave the image out and describe it in words.
+- Allowed: a https link, or data:image/png;base64,... (also jpeg or webp). NOT allowed: SVG, data:image/svg+xml, HTML or emoji.
+- Image in a question: { type: "MCQ", text: "Which cell is shown?", image: "https://...", options: ["Plant cell", "Animal cell", "Bacteria", "Virus"], correct: "A", marks: 1 }
+- Images as options (always give a short text label too): options: [{ text: "Figure A", image: "https://..." }, { text: "Figure B", image: "https://..." }, { text: "Figure C", image: "https://..." }, { text: "Figure D", image: "https://..." }]
+- Image in a passage: { type: "PASSAGE", id: "p2", text: "Study the diagram.", image: "https://..." }
+- Image in an explanation: explanationImage: "https://..."
+- MATCH pairs can also have images: { left: "Heart", right: { text: "Pumps blood", image: "https://..." } }
 
 Now create this test (write the topic, class, subject, number of questions and the mix of question types here):
 TOPIC: 

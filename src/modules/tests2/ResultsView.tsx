@@ -79,7 +79,19 @@ const AttemptModal = ({ attemptId, onClose, onChanged }) => {
                   {q.q_type === 8 && <div style={{ fontSize: 13 }}>Matches: <span style={{ color: C.textMuted }}>{a && a.text ? a.text : "-"}</span></div>}
                   {WRITTEN.includes(q.q_type) && (
                     <div>
-                      <div style={{ background: C.surfaceAlt, borderRadius: 8, padding: 10, fontSize: 13, whiteSpace: "pre-wrap" }}>{a && a.text ? a.text : "No answer"}</div>
+                      {a && a.text && a.text !== "(Answer attached as photo / PDF)"
+                        ? <div style={{ background: C.surfaceAlt, borderRadius: 8, padding: 10, fontSize: 13, whiteSpace: "pre-wrap" }}>{a.text}</div>
+                        : !(a && a.files && a.files.length) ? <div style={{ background: C.surfaceAlt, borderRadius: 8, padding: 10, fontSize: 13 }}>No answer</div> : null}
+                      {a && a.files && a.files.length > 0 && (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 6 }}>Written on paper by the student - {a.files.length} file{a.files.length > 1 ? "s" : ""} (click to open, then enter marks below)</div>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            {a.files.map((f) => (f.mime === "application/pdf"
+                              ? <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ fontSize: 12.5 }}>PDF: {f.name}</a>
+                              : <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer"><img src={f.url} alt="" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 8, border: `1px solid ${C.border}` }} /></a>))}
+                          </div>
+                        </div>
+                      )}
                       {q.answer_config && q.answer_config.model_answer && <div style={{ fontSize: 12, color: C.textMuted, marginTop: 6 }}>Model answer: {q.answer_config.model_answer}</div>}
                       {a && a.text && <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
                         <label style={{ fontSize: 12.5 }}>Marks (0 to {q.marks})</label>

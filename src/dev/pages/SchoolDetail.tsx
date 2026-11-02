@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useState } from "react";
 import { SchoolBilling } from "./SchoolBilling";
+import { PaymentEvents } from "./Payments";
 import { papi, explain, toast, ago } from "../api";
 import { Chip, Modal, Field, CopyBox, useLoad } from "../ui";
 import { healthFlags, pct } from "../health";
@@ -13,7 +14,7 @@ const Usage = ({ label, n, max }) => {
   return (<div style={{ marginBottom: 10 }}><div className="dc-row" style={{ justifyContent: "space-between", fontSize: 13 }}><span>{label}</span><b>{n}{max != null ? ` / ${max}` : " (no limit)"}</b></div>
     <div className="dc-bar"><i style={{ width: `${max ? p : 8}%`, background: col, opacity: max ? 1 : 0.35 }} /></div></div>);
 };
-const TABS = [["overview", "Overview"], ["users", "Users"], ["billing", "Billing"], ["modules", "Modules"], ["activity", "Activity"], ["settings", "Settings"]];
+const TABS = [["overview", "Overview"], ["users", "Users"], ["billing", "Billing"], ["payments", "Payments"], ["modules", "Modules"], ["activity", "Activity"], ["settings", "Settings"]];
 
 export const SchoolDetail = ({ id, go, onOpen, tab: tabProp }) => {
   const d = useLoad(() => papi(`/schools/${id}`), [id]);
@@ -102,6 +103,7 @@ export const SchoolDetail = ({ id, go, onOpen, tab: tabProp }) => {
         </Section>)}
 
       {tab === "billing" && <SchoolBilling id={id} go={go} />}
+      {tab === "payments" && <PaymentEvents schoolId={id} />}
       {tab === "modules" && (
         <Section title="Modules (untick to switch off for this school)">
           <div className="dc-grid" style={{ marginBottom: 8 }}>{MODULE_KEYS.map((k) => (
