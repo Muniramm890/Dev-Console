@@ -13,7 +13,7 @@ const Usage = ({ label, n, max }) => {
   return (<div style={{ marginBottom: 10 }}><div className="dc-row" style={{ justifyContent: "space-between", fontSize: 13 }}><span>{label}</span><b>{n}{max != null ? ` / ${max}` : " (no limit)"}</b></div>
     <div className="dc-bar"><i style={{ width: `${max ? p : 8}%`, background: col, opacity: max ? 1 : 0.35 }} /></div></div>);
 };
-const TABS = [["overview", "Overview"], ["users", "Users"], ["billing", "Billing"], ["plan", "Plan & limits"], ["modules", "Modules"], ["activity", "Activity"], ["settings", "Settings"]];
+const TABS = [["overview", "Overview"], ["users", "Users"], ["billing", "Billing"], ["modules", "Modules"], ["activity", "Activity"], ["settings", "Settings"]];
 
 export const SchoolDetail = ({ id, go, onOpen, tab: tabProp }) => {
   const d = useLoad(() => papi(`/schools/${id}`), [id]);
@@ -49,7 +49,7 @@ export const SchoolDetail = ({ id, go, onOpen, tab: tabProp }) => {
             <div style={{ fontSize: 12.5, color: C.textMuted }}>{s.slug} - {[s.city, s.state].filter(Boolean).join(", ")} - since {String(s.created_at).slice(0, 10)}</div>
             <div className="dc-row" style={{ marginTop: 8 }}><Chip status={s.platform_status} deleted={!!s.deleted_at} />{flags.map(([t, c]) => <span key={t} className="dc-chip" style={{ background: `${c === "red" ? C.red : c === "yellow" ? C.yellow : C.textMuted}22`, color: c === "red" ? C.red : c === "yellow" ? C.yellow : C.textMuted }}>{t}</span>)}</div>
           </div>
-          <div className="dc-row"><button className="btn btn-ghost" onClick={() => go(`whatsapp@numbers:${id}`)}>WhatsApp</button><button className="btn btn-primary" disabled={!!s.deleted_at} onClick={() => onOpen({ id, name: s.name })}>Open school</button></div>
+          <button className="btn btn-primary" disabled={!!s.deleted_at} onClick={() => onOpen({ id, name: s.name })}>Open school</button>
         </div>
         {s.platform_status !== "active" && <p style={{ marginTop: 10, fontSize: 13, color: C.yellow }}>Reason: {s.blocked_reason || "-"}{s.platform_message ? ` - School sees: "${s.platform_message}"` : ""}</p>}
       </div>
@@ -69,6 +69,7 @@ export const SchoolDetail = ({ id, go, onOpen, tab: tabProp }) => {
               {s.platform_status !== "suspended" && <button className="btn btn-ghost" style={{ color: C.yellow }} onClick={() => setModal({ kind: "suspend" })}>Suspend (read-only)</button>}
               {s.platform_status !== "active" && <button className="btn btn-primary" onClick={() => setModal({ kind: "unblock" })}>Unblock</button>}
               <button className="btn btn-ghost" disabled={busy} onClick={() => run(() => papi(`/schools/${id}/force-logout`, "POST"), "Everyone will be logged out")}>Force logout everyone</button>
+              <button className="btn btn-ghost" onClick={() => go(`whatsapp@numbers:${id}`)}>WhatsApp numbers</button>
             </div>
           </Section>
           <Section title="School admins">
@@ -101,25 +102,6 @@ export const SchoolDetail = ({ id, go, onOpen, tab: tabProp }) => {
         </Section>)}
 
       {tab === "billing" && <SchoolBilling id={id} go={go} />}
-      {tab === "plan" && (
-        <div className="dc-split">
-          <Section title="Validity">
-            <div style={{ fontSize: 13, marginBottom: 8 }}>Valid until: <b>{f.valid_until || "not set"}</b></div>
-            <div className="dc-row">{[[30, "+30 days"], [90, "+90 days"], [365, "+1 year"]].map(([n, l]) => <button key={n} className="btn btn-ghost" disabled={busy} onClick={() => extend(n)}>{l}</button>)}
-              <button className="btn btn-ghost" disabled={busy} onClick={() => { setForm({ ...f, valid_until: "" }); save({ valid_until: "" }); }}>Clear</button></div>
-            <Field label="Custom date"><input className="input" type="date" value={f.valid_until} onChange={set("valid_until")} /></Field>
-          </Section>
-          <Section title="Plan and limits">
-            <div className="dc-grid" style={{ marginBottom: 0 }}>
-              <Field label="Plan"><input className="input" value={f.plan} onChange={set("plan")} /></Field>
-              <Field label="Max students"><input className="input" type="number" min="0" value={f.max_students} onChange={set("max_students")} /></Field>
-              <Field label="Max staff"><input className="input" type="number" min="0" value={f.max_staff} onChange={set("max_staff")} /></Field>
-            </div>
-            <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy} onClick={() => save()}>Save</button>
-            <p style={{ fontSize: 12, color: C.textMuted }}>Saved now; enforcement (fees / limits) comes with the fee logic.</p>
-          </Section>
-        </div>)}
-
       {tab === "modules" && (
         <Section title="Modules (untick to switch off for this school)">
           <div className="dc-grid" style={{ marginBottom: 8 }}>{MODULE_KEYS.map((k) => (

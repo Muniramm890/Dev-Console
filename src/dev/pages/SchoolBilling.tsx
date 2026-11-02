@@ -60,21 +60,68 @@ const PlanPicker = ({ plans, students, value, onChange }) => {
   );
 };
 
+// what the next invoice will count: window, per category / sender, failed ones excluded, and anything that could not be attributed
+const UsageCard = ({ u }) => {
+  const d = u.data;
+  if (u.err) return <div className="card" style={{ marginBottom: 14, color: C.red, fontSize: 12.5 }}>Usage: {u.err}</div>;
+  if (!d) return null;
+  const rateSum = ["own", "platform"].reduce((a, w) => a + Object.values(d.rates[w] || {}).reduce((x, y) => x + Number(y || 0), 0), 0);
+  const last = d.window.to_exclusive ? new Date(new Date(`${d.window.to_exclusive}T00:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10) : "";
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <b className="syne" style={{ fontSize: 14 }}>WhatsApp usage in the next invoice</b>
+      <div style={{ fontSize: 12, color: C.textMuted, margin: "4px 0 10px", lineHeight: 1.6 }}>
+        {d.window.empty ? <>Nothing to count yet: usage is counted from <b>{dt(d.window.from)}</b>, which is not before today.</> : <>Counted from <b>{dt(d.window.from)}</b> to <b>{dt(last)}</b> (today's messages go into the next invoice). Start date {dt(d.billing.started_on)}; already billed up to {d.billing.extras_billed_to ? dt(d.billing.extras_billed_to) : "nothing yet"}.</>}
+      </div>
+      {d.counted.length ? (
+        <div className="scroll-x"><table className="table"><thead><tr><th>Category</th><th>Sent from</th><th>Messages</th><th>Rate</th><th>Amount</th></tr></thead>
+          <tbody>
+            {d.counted.map((r, i) => <tr key={i}><td style={{ textTransform: "capitalize" }}>{r.category}</td><td>{r.who === "platform" ? "School Office number" : "School's own number"}</td><td>{r.count}</td><td>{inr(r.rate_paise)}</td><td>{inr(r.amount_paise)}</td></tr>)}
+            <tr><td colSpan={2} style={{ fontWeight: 700 }}>Total</td><td style={{ fontWeight: 700 }}>{d.counted_total}</td><td /><td style={{ fontWeight: 800 }}>{inr(d.amount_paise)}</td></tr>
+          </tbody></table></div>
+      ) : <p style={{ color: C.textMuted, fontSize: 12.5 }}>No billable WhatsApp messages in this window.</p>}
+      <div style={{ fontSize: 12, color: C.textMuted, marginTop: 8, lineHeight: 1.7 }}>
+        {d.failed > 0 && <div>{d.failed} failed message{d.failed === 1 ? "" : "s"} are not charged.</div>}
+        {d.today_or_later > 0 && <div>{d.today_or_later} message{d.today_or_later === 1 ? "" : "s"} from today are counted in the next invoice.</div>}
+      </div>
+      {rateSum === 0 && <div style={{ fontSize: 12.5, color: C.yellow, marginTop: 8 }}>All WhatsApp rates are 0, so nothing is charged. Set them in Billing, Rates &amp; charges.</div>}
+      {d.counted.some((r) => r.rate_paise === 0) && rateSum > 0 && <div style={{ fontSize: 12.5, color: C.yellow, marginTop: 8 }}>Some of these have a rate of 0 (for example the school's own number), so they add no amount.</div>}
+      {d.invoices.length > 0 && <div style={{ fontSize: 12.5, color: C.blue, marginTop: 8 }}>Existing invoice{d.invoices.length > 1 ? "s" : ""}: {d.invoices.map((i) => `${i.invoice_no} (${dt(i.period_start)} to ${dt(i.period_end)}, ${i.status})`).join("; ")}. Generating again for the same period returns the existing invoice without recalculating; void it to bill again.</div>}
+      {d.unattributed.length > 0 && <div style={{ fontSize: 12.5, color: C.red, marginTop: 8 }}>Messages with no school attached in this window: {d.unattributed.map((x) => `${x.purpose} (${x.count})`).join(", ")}. These cannot be billed to any school.</div>}
+      {d.recent.length > 0 && (
+        <div style={{ marginTop: 10 }}><span className="dc-label">Latest messages of this school</span>
+          {d.recent.map((r, i) => <div key={i} style={{ fontSize: 12, padding: "4px 0", borderBottom: `1px solid ${C.border}` }}>{String(r.created_at).slice(0, 16).replace("T", " ")} | {r.purpose} | {r.template_name || "-"} | {r.pricing_category || r.category} | {r.via_fallback ? "School Office no." : "own no."} | {r.send_status}{r.delivery_status ? ` / ${r.delivery_status}` : ""}</div>)}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const SchoolBilling = ({ id }) => {
   const d = useLoad(() => papi(`/schools/${id}/billing`), [id]);
   const plans = useLoad(() => papi("/billing/plans"), []);
   const [f, setF] = useState(null); const [inv, setInv] = useState(null); const [busy, setBusy] = useState(false); const [ask, setAsk] = useState(null);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
   const data = d.data; const b = data && data.billing;
+  const wau = useLoad(() => (b ? papi(`/schools/${id}/billing/usage`) : Promise.resolve(null)), [id, !!b]);
   const run = async (fn, ok) => { setBusy(true); try { await fn(); toast(ok); setAsk(null); setF(null); await d.reload(); } catch (e) { toast(explain(e), "err"); } finally { setBusy(false); } };
 
+  const gen = async () => {
+    setBusy(true);
+    try {
+      const r = await papi(`/schools/${id}/billing/invoice`, "POST");
+      if (r && r.created) toast(`Invoice ${r.invoice_no} created (${inr(r.total_paise)})`);
+      else toast(`Invoice ${r && r.invoice_no} already covers this period, so nothing was recalculated. Open it and void it first to bill again.`, "err");
+      await d.reload(); wau.reload();
+    } catch (e) { toast(explain(e), "err"); } finally { setBusy(false); }
+  };
   const open = () => setF(b
-    ? { plan_id: b.plan_id, discount_pct: String(b.discount_pct), auto_renew: b.auto_renew, student: rup(b.student_rate_override), staff: rup(b.staff_rate_override), base: rup(b.base_fee_override), notes: b.notes || "" }
+    ? { plan_id: b.plan_id, started_on: (data.invoices || []).length ? "" : (b.started_on || ""), discount_pct: String(b.discount_pct), auto_renew: b.auto_renew, student: rup(b.student_rate_override), staff: rup(b.staff_rate_override), base: rup(b.base_fee_override), notes: b.notes || "" }
     : { plan_id: "", started_on: todayStr(), trial_days: "0", discount_pct: "0", auto_renew: true, student: "", staff: "", base: "", notes: "", generate_invoice: false });
   const save = () => run(() => papi(`/schools/${id}/billing`, "PUT", {
     plan_id: f.plan_id || undefined, discount_pct: Number(f.discount_pct) || 0, auto_renew: f.auto_renew,
     student_rate_override: toPaise(f.student), staff_rate_override: toPaise(f.staff), base_fee_override: toPaise(f.base), notes: f.notes,
-    ...(b ? {} : { started_on: f.started_on, trial_days: Number(f.trial_days) || 0, generate_invoice: !!f.generate_invoice }),
+    ...(b ? (f.started_on ? { started_on: f.started_on } : {}) : { started_on: f.started_on, trial_days: Number(f.trial_days) || 0, generate_invoice: !!f.generate_invoice }),
   }), "Billing saved");
 
   if (d.err) return <div className="card" style={{ color: C.red }}>{d.err}</div>;
@@ -107,7 +154,7 @@ export const SchoolBilling = ({ id }) => {
           )}
           <div className="dc-row" style={{ marginTop: 14 }}>
             <button className="btn btn-primary" onClick={open}>{b ? "Edit plan" : "Start billing"}</button>
-            {b && b.status !== "cancelled" && <button className="btn btn-ghost" disabled={busy} onClick={() => run(() => papi(`/schools/${id}/billing/invoice`, "POST"), "Invoice step done")}>Generate invoice now</button>}
+            {b && b.status !== "cancelled" && <button className="btn btn-ghost" disabled={busy} onClick={gen}>Generate invoice now</button>}
             {b && b.status !== "cancelled" && <button className="btn btn-ghost" onClick={() => setAsk("cancel")}>Stop billing</button>}
             {b && b.status === "cancelled" && <button className="btn btn-ghost" disabled={busy} onClick={() => run(() => papi(`/schools/${id}/billing`, "PUT", { status: "active" }), "Billing resumed")}>Resume billing</button>}
             {b && <button className="btn btn-ghost" style={{ color: C.red }} onClick={() => setAsk("remove")}>Remove (back to legacy)</button>}
@@ -119,7 +166,7 @@ export const SchoolBilling = ({ id }) => {
             <div className="card dc-kpi" style={{ "--k": C.blue }}><b>{counts.students ?? 0}</b><span>Students{lim.max_students ? ` (limit ${lim.max_students})` : ""}</span></div>
             <div className="card dc-kpi" style={{ "--k": C.purple }}><b>{counts.staff ?? 0}</b><span>Staff{lim.max_staff ? ` (limit ${lim.max_staff})` : ""}</span></div>
           </div>
-          <div style={{ fontSize: 12, color: C.textMuted }}>Active = enabled and not deleted. Limits are shown in the "Plan &amp; limits" tab.</div>
+          <div style={{ fontSize: 12, color: C.textMuted }}>Active = enabled and not deleted.</div>
           {usage.length > 1 && (
             <div style={{ height: 150, marginTop: 10 }}>
               <ResponsiveContainer width="100%" height="100%"><LineChart data={usage}><CartesianGrid strokeDasharray="3 3" stroke={`${C.border}88`} /><XAxis dataKey="name" tick={{ fontSize: 10, fill: C.textMuted }} interval="preserveStartEnd" /><YAxis allowDecimals={false} tick={{ fontSize: 10, fill: C.textMuted }} width={34} /><Tooltip />
@@ -143,6 +190,8 @@ export const SchoolBilling = ({ id }) => {
         </div>
       )}
 
+      {b && <UsageCard u={wau} />}
+
       {b && (
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "12px 14px" }}><b className="syne" style={{ fontSize: 14 }}>Recent invoices</b></div>
@@ -156,6 +205,7 @@ export const SchoolBilling = ({ id }) => {
       {f && (
         <Modal title={b ? "Edit plan" : "Start billing"} onClose={() => setF(null)}>
           <PlanPicker plans={plans.data || []} students={counts.students || 0} value={f.plan_id} onChange={(pid) => setF({ ...f, plan_id: pid })} />
+          {b && f.started_on ? <Field label="Start date (usage and billing are counted from here)"><input className="input" type="date" value={f.started_on} onChange={set("started_on")} /></Field> : null}
           {!b && <div className="dc-grid" style={{ marginBottom: 0 }}><Field label="Start date"><input className="input" type="date" value={f.started_on} onChange={set("started_on")} /></Field><Field label="Free trial (days)"><input className="input" inputMode="numeric" value={f.trial_days} onChange={set("trial_days")} /></Field></div>}
           <div className="dc-grid" style={{ marginBottom: 0 }}>
             <Field label="Discount (%)"><input className="input" inputMode="decimal" value={f.discount_pct} onChange={set("discount_pct")} /></Field>
