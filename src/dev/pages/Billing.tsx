@@ -131,12 +131,105 @@ const Overview = ({ go }) => {
   );
 };
 
-// ---------- plans ----------
+// ---------- plans: 3 student tiers x (monthly, yearly, pay as you go) + custom plans ----------
+const TIER_DEFAULTS = [
+  { n: 1, name: "Tier 1", min: 0, max: 1000, ref: 700 },
+  { n: 2, name: "Tier 2", min: 1001, max: 10000, ref: 7000 },
+  { n: 3, name: "Tier 3", min: 10001, max: null, ref: 10000 },
+];
+const PT = [["monthly", "Monthly", "month"], ["yearly", "Yearly", "year"], ["payg", "Pay as you go", "month"]];
+const n0 = (v) => Number(v || 0).toLocaleString("en-IN");
+export const rangeText = (min, max) => (max == null || max === "" ? `Above ${n0(Math.max(0, Number(min) - 1))} students` : `${n0(min)} to ${n0(max)} students`);
+
+const tierForm = (def, plans) => {
+  const mine = plans.filter((p) => p.tier === def.n);
+  const by = (t) => mine.find((p) => p.plan_type === t);
+  const m = by("monthly"); const y = by("yearly"); const g = by("payg"); const any = m || y || g;
+  return {
+    name: any ? (any.tier_name || def.name) : def.name,
+    min: String(any ? (any.min_students ?? def.min) : def.min),
+    max: any ? (any.max_students == null ? "" : String(any.max_students)) : (def.max == null ? "" : String(def.max)),
+    ref: String(any ? (any.ref_students || def.ref) : def.ref),
+    monthly: m && m.ref_price_paise != null ? rup(m.ref_price_paise) : "",
+    yearly: y && y.ref_price_paise != null ? rup(y.ref_price_paise) : "",
+    payg: g && g.ref_price_paise != null && m && g.ref_price_paise !== m.ref_price_paise ? rup(g.ref_price_paise) : "",
+    staff: any ? rup(any.staff_rate_paise) : "",
+    active: { monthly: m ? m.is_active : true, yearly: y ? y.is_active : true, payg: g ? g.is_active : true },
+    schools: mine.reduce((a, p) => a + (p.schools || 0), 0), saved: !!any,
+  };
+};
+
+const TierCard = ({ def, plans, onSaved }) => {
+  const [f, setF] = useState(() => tierForm(def, plans)); const [busy, setBusy] = useState(false);
+  useEffect(() => { setF(tierForm(def, plans)); }, [plans]); // eslint-disable-line
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const ref = Math.max(1, Number(f.ref) || 1);
+  const price = (t) => toPaise(t === "payg" && f.payg === "" ? f.monthly : f[t]);
+  const perStudent = (t) => { const p = price(t); return p == null ? null : (t === "yearly" ? p / 12 : p) / ref; };
+  const mPer = perStudent("monthly"); const yPer = perStudent("yearly");
+  const saving = mPer && yPer ? Math.round((1 - yPer / mPer) * 1000) / 10 : null;
+  const save = async () => {
+    if (!(price("monthly") > 0) || !(price("yearly") > 0)) { toast("Enter the monthly and the yearly price first", "err"); return; }
+    setBusy(true);
+    try {
+      await papi(`/billing/tiers/${def.n}`, "PUT", {
+        tier_name: f.name, min_students: Number(f.min) || 0, max_students: f.max === "" ? null : Number(f.max), ref_students: ref,
+        monthly_price_paise: price("monthly"), yearly_price_paise: price("yearly"), payg_price_paise: price("payg"), staff_rate_paise: toPaise(f.staff) || 0, active: f.active,
+      });
+      toast(`${f.name} saved`); onSaved();
+    } catch (e) { toast(explain(e), "err"); } finally { setBusy(false); }
+  };
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div className="dc-row" style={{ justifyContent: "space-between", flexWrap: "wrap", marginBottom: 10 }}>
+        <div className="dc-row"><span className="dc-chip" style={{ background: `${C.primary}22`, color: C.primary }}>Tier {def.n}</span><b className="syne" style={{ fontSize: 15 }}>{f.name}</b><span style={{ fontSize: 12.5, color: C.textMuted }}>{rangeText(f.min, f.max)}</span></div>
+        <span style={{ fontSize: 12, color: C.textMuted }}>{f.saved ? `${f.schools} school${f.schools === 1 ? "" : "s"} on this tier` : "Not saved yet"}</span>
+      </div>
+      <div className="dc-grid" style={{ marginBottom: 12 }}>
+        <Field label="Tier name"><input className="input" value={f.name} onChange={set("name")} /></Field>
+        <Field label="From (students)"><input className="input" inputMode="numeric" value={f.min} onChange={set("min")} /></Field>
+        <Field label="To (blank = no limit)"><input className="input" inputMode="numeric" value={f.max} onChange={set("max")} /></Field>
+        <Field label="Reference students"><input className="input" inputMode="numeric" value={f.ref} onChange={set("ref")} /></Field>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
+        {PT.map(([t, label, unit]) => {
+          const per = perStudent(t);
+          return (
+            <div key={t} className="card" style={{ background: C.surfaceAlt, opacity: f.active[t] ? 1 : 0.55 }}>
+              <div className="dc-row" style={{ justifyContent: "space-between" }}>
+                <b>{label}</b>
+                <label style={{ fontSize: 11.5, display: "flex", gap: 5, alignItems: "center" }}><input type="checkbox" checked={f.active[t]} onChange={(e) => setF({ ...f, active: { ...f.active, [t]: e.target.checked } })} /> Offered</label>
+              </div>
+              <Field label={`Price for ${n0(ref)} students (INR / ${unit})`}>
+                <input className="input" inputMode="decimal" value={f[t]} placeholder={t === "payg" ? "Blank = same as monthly" : ""} onChange={set(t)} />
+              </Field>
+              <div style={{ marginTop: 10 }}>
+                <div className="syne" style={{ fontSize: 22, fontWeight: 800, color: C.primary }}>{per != null ? inr(per) : "-"}</div>
+                <div style={{ fontSize: 11.5, color: C.textMuted }}>per student / month</div>
+              </div>
+              {t === "yearly" && saving != null && <div style={{ fontSize: 12, marginTop: 6, color: saving >= 0 ? C.green : C.red }}>{saving >= 0 ? `${saving}% cheaper than monthly` : `${Math.abs(saving)}% costlier than monthly`}</div>}
+              {t === "payg" && <div style={{ fontSize: 11.5, marginTop: 6, color: C.textMuted }}>Billed after the month on the daily average of active students.</div>}
+            </div>
+          );
+        })}
+      </div>
+      <div className="dc-row" style={{ marginTop: 14, justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div className="dc-row" style={{ alignItems: "flex-end" }}>
+          <Field label="Per staff / month (optional, INR)"><input className="input" style={{ width: 170 }} inputMode="decimal" value={f.staff} onChange={set("staff")} placeholder="0 = staff included" /></Field>
+        </div>
+        <button className="btn btn-primary" disabled={busy} onClick={save}>{busy ? "Saving..." : `Save ${f.name}`}</button>
+      </div>
+      <div style={{ fontSize: 12, color: C.textMuted, marginTop: 10, lineHeight: 1.6 }}>Per-student cost = price / reference students (yearly price / 12). Integrations (WhatsApp, email, SMS) are charged extra on actual use, set in Rates &amp; charges. New rates apply from the next invoice.</div>
+    </div>
+  );
+};
+
 const EMPTY_PLAN = { code: "", name: "", plan_type: "monthly", student: "", staff: "", base: "", min: "", discount: "0", description: "", is_active: true };
 const Plans = () => {
   const l = useLoad(() => papi("/billing/plans"), []);
   const [f, setF] = useState(null); const [editId, setEditId] = useState(null); const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const all = l.data || []; const custom = all.filter((p) => p.tier == null);
   const open = (p) => { setEditId(p ? p.id : null); setF(p ? { code: p.code, name: p.name, plan_type: p.plan_type, student: rup(p.student_rate_paise), staff: rup(p.staff_rate_paise), base: rup(p.base_fee_paise), min: rup(p.min_fee_paise), discount: String(p.yearly_discount_pct), description: p.description || "", is_active: p.is_active } : EMPTY_PLAN); };
   const save = async () => {
     setBusy(true);
@@ -149,16 +242,21 @@ const Plans = () => {
   const toggle = async (p) => { try { await papi(`/billing/plans/${p.id}`, "PUT", { is_active: !p.is_active }); l.reload(); } catch (e) { toast(explain(e), "err"); } };
   return (
     <>
-      <div className="dc-row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
-        <span style={{ fontSize: 12.5, color: C.textMuted }}>Rates are per month. Yearly plans bill 12 months of these rates minus the yearly discount. Rate changes apply from the next invoice.</span>
-        <button className="btn btn-primary" onClick={() => open(null)}>+ New plan</button>
+      <div style={{ fontSize: 12.5, color: C.textMuted, lineHeight: 1.6, marginBottom: 12 }}>
+        Schools are grouped into 3 tiers by their number of active students. Enter the price for the reference number of students; the per-student cost is worked out for you. Each tier has a Monthly, a Yearly and a Pay-as-you-go plan, and a school sees the plans of its own tier.
       </div>
-      {l.err && <div className="card" style={{ color: C.red }}>{l.err}</div>}
+      {l.err && <div className="card" style={{ color: C.red, marginBottom: 12 }}>{l.err}</div>}
+      {l.loading && !l.data ? <p style={{ color: C.textMuted }}>Loading...</p> : TIER_DEFAULTS.map((def) => <TierCard key={def.n} def={def} plans={all} onSaved={l.reload} />)}
+
+      <div className="dc-row" style={{ justifyContent: "space-between", margin: "22px 0 10px" }}>
+        <div><b className="syne" style={{ fontSize: 15 }}>Custom plans</b><div style={{ fontSize: 12, color: C.textMuted }}>Special deals outside the tiers (own rates, base fee, minimum fee). Optional.</div></div>
+        <button className="btn btn-ghost" onClick={() => open(null)}>+ Custom plan</button>
+      </div>
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        {l.loading && !l.data ? <p style={{ padding: 20, color: C.textMuted }}>Loading...</p> : !(l.data || []).length ? <p style={{ padding: 20, color: C.textMuted }}>No plans yet. Create the first plan.</p> : (
+        {!custom.length ? <p style={{ padding: 16, color: C.textMuted }}>No custom plans.</p> : (
           <div className="scroll-x"><table className="table">
             <thead><tr><th>Plan</th><th>Type</th><th>Per student</th><th>Per staff</th><th>Base</th><th>Min.</th><th>Schools</th><th /></tr></thead>
-            <tbody>{l.data.map((p) => (
+            <tbody>{custom.map((p) => (
               <tr key={p.id} style={{ opacity: p.is_active ? 1 : 0.55 }}>
                 <td><b style={{ fontSize: 12.5 }}>{p.name}</b><div className="dc-mono" style={{ fontSize: 11 }}>{p.code}{p.is_active ? "" : " (archived)"}</div></td>
                 <td>{TYPE[p.plan_type]}{p.plan_type === "yearly" && p.yearly_discount_pct ? ` (-${p.yearly_discount_pct}%)` : ""}</td>
@@ -169,9 +267,9 @@ const Plans = () => {
         )}
       </div>
       {f && (
-        <Modal title={editId ? "Edit plan" : "New plan"} onClose={() => setF(null)}>
+        <Modal title={editId ? "Edit custom plan" : "New custom plan"} onClose={() => setF(null)}>
           <div className="dc-grid" style={{ marginBottom: 0 }}>
-            {!editId && <Field label="Code (lowercase, e.g. standard-monthly)"><input className="input" value={f.code} onChange={set("code")} /></Field>}
+            {!editId && <Field label="Code (lowercase, e.g. special-2026)"><input className="input" value={f.code} onChange={set("code")} /></Field>}
             <Field label="Plan name"><input className="input" value={f.name} onChange={set("name")} /></Field>
             <Field label="Type"><select className="select" value={f.plan_type} onChange={set("plan_type")}>{Object.entries(TYPE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
             <Field label="Per active student / month (INR)"><input className="input" inputMode="decimal" value={f.student} onChange={set("student")} /></Field>

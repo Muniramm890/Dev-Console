@@ -4,12 +4,61 @@ import { useState } from "react";
 import { Line, LineChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { papi, explain, toast } from "../api";
 import { Modal, Field, useLoad } from "../ui";
-import { InvoiceModal, StChip, inr, rup, toPaise } from "./Billing";
+import { InvoiceModal, StChip, inr, rup, toPaise, rangeText } from "./Billing";
 import { C } from "../../theme/theme";
 
 const TYPE = { monthly: "Monthly", yearly: "Yearly", payg: "Pay as you go" };
 const dt = (d) => (d ? String(d).slice(0, 10) : "-");
 const todayStr = () => new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+
+// tier-aware plan picker: shows the 3 plans (monthly / yearly / pay as you go) of the school's own tier, with the per-student monthly cost
+const PLAN_ORDER = { monthly: 0, yearly: 1, payg: 2 };
+const PlanPicker = ({ plans, students, value, onChange }) => {
+  const tiered = plans.filter((p) => p.tier != null && p.is_active);
+  const tiers = [...new Set(tiered.map((p) => p.tier))].sort();
+  const info = (n) => { const p = tiered.find((x) => x.tier === n); return { n, name: p.tier_name || `Tier ${n}`, min: p.min_students ?? 0, max: p.max_students }; };
+  const rec = tiers.map(info).find((t) => students >= t.min && (t.max == null || students <= t.max));
+  const cur = plans.find((p) => p.id === value);
+  const [tierSel, setTierSel] = useState(cur && cur.tier != null ? cur.tier : (rec ? rec.n : tiers[0]));
+  const shown = tiered.filter((p) => p.tier === tierSel).sort((a, b) => PLAN_ORDER[a.plan_type] - PLAN_ORDER[b.plan_type]);
+  const custom = plans.filter((p) => p.tier == null && (p.is_active || p.id === value));
+  const note = (p) => (p.plan_type === "yearly" ? `About ${inr(students * p.student_rate_paise * 12)} per year for ${students} students` : `About ${inr(students * p.student_rate_paise)} per month for ${students} students${p.plan_type === "payg" ? ", billed after the month" : ""}`);
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <span className="dc-label">Plan</span>
+      {tiers.length > 0 ? (
+        <>
+          <div className="dc-row" style={{ margin: "6px 0 10px" }}>
+            {tiers.map(info).map((t) => (
+              <button key={t.n} type="button" className={`btn ${tierSel === t.n ? "btn-primary" : "btn-ghost"}`} onClick={() => setTierSel(t.n)}>
+                {t.name}{rec && rec.n === t.n ? " (this school)" : ""}
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>{students} active students now{rec ? ` - fits ${rec.name} (${rangeText(rec.min, rec.max)})` : ""}</div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {shown.map((p) => (
+              <div key={p.id} onClick={() => onChange(p.id)} className="card" style={{ cursor: "pointer", border: `2px solid ${value === p.id ? C.primary : C.border}`, background: value === p.id ? `${C.primary}12` : undefined, padding: 12 }}>
+                <div className="dc-row" style={{ justifyContent: "space-between" }}>
+                  <b>{TYPE[p.plan_type]}</b>
+                  <span><b className="syne" style={{ fontSize: 17, color: C.primary }}>{inr(p.student_rate_paise)}</b> <span style={{ fontSize: 11.5, color: C.textMuted }}>per student / month</span></span>
+                </div>
+                <div style={{ fontSize: 11.5, color: C.textMuted, marginTop: 4 }}>{note(p)}</div>
+              </div>
+            ))}
+            {!shown.length && <div style={{ fontSize: 12.5, color: C.textMuted }}>No active plans in this tier.</div>}
+          </div>
+        </>
+      ) : <div style={{ fontSize: 12.5, color: C.textMuted, margin: "6px 0" }}>No tier plans are set up yet (Billing, Plans). You can still pick a custom plan below.</div>}
+      {custom.length > 0 && (
+        <select className="select" style={{ marginTop: 10 }} value={cur && cur.tier == null ? value : ""} onChange={(e) => e.target.value && onChange(e.target.value)}>
+          <option value="">Or choose a custom plan...</option>
+          {custom.map((p) => <option key={p.id} value={p.id}>{p.name} ({TYPE[p.plan_type]})</option>)}
+        </select>
+      )}
+    </div>
+  );
+};
 
 export const SchoolBilling = ({ id }) => {
   const d = useLoad(() => papi(`/schools/${id}/billing`), [id]);
@@ -106,7 +155,7 @@ export const SchoolBilling = ({ id }) => {
 
       {f && (
         <Modal title={b ? "Edit plan" : "Start billing"} onClose={() => setF(null)}>
-          <Field label="Plan"><select className="select" value={f.plan_id} onChange={set("plan_id")}><option value="">{b ? "Keep current plan" : "Choose a plan"}</option>{activePlans.map((p) => <option key={p.id} value={p.id}>{p.name} ({TYPE[p.plan_type]})</option>)}</select></Field>
+          <PlanPicker plans={plans.data || []} students={counts.students || 0} value={f.plan_id} onChange={(pid) => setF({ ...f, plan_id: pid })} />
           {!b && <div className="dc-grid" style={{ marginBottom: 0 }}><Field label="Start date"><input className="input" type="date" value={f.started_on} onChange={set("started_on")} /></Field><Field label="Free trial (days)"><input className="input" inputMode="numeric" value={f.trial_days} onChange={set("trial_days")} /></Field></div>}
           <div className="dc-grid" style={{ marginBottom: 0 }}>
             <Field label="Discount (%)"><input className="input" inputMode="decimal" value={f.discount_pct} onChange={set("discount_pct")} /></Field>
