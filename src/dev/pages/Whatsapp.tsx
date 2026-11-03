@@ -1,6 +1,6 @@
 // @ts-nocheck
 // Console -> WhatsApp (Meta): usage overview, per-school numbers, message log.
-// Webhook + billing are placeholders for later. Uses the existing /platform/whatsapp/* and /platform/schools/:id/whatsapp routes.
+// Webhook status shows per-school WhatsApp billing usage. Uses the existing /platform/whatsapp/* and /platform/schools/:id/whatsapp routes.
 import { useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { papi, ago, explain, toast } from "../api";
@@ -329,6 +329,68 @@ const RawModal = ({ id, onClose }) => {
   );
 };
 
+const inrP = (p) => `\u20B9${(Number(p || 0) / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const WHO = { platform: "School Office number", own: "School's own number" };
+
+// ---------- billing: WhatsApp usage and charges of one school (not yet invoiced period) ----------
+const WaBillingCard = () => {
+  const [school, setSchool] = useState(null);
+  const [pick, setPick] = useState(false);
+  const u = useLoad(() => (school ? papi(`/schools/${school.id}/billing/usage`) : Promise.resolve(null)), [school?.id]);
+  const d = u.data;
+  return (
+    <div className="card">
+      <div className="dc-row" style={{ justifyContent: "space-between" }}>
+        <b className="syne" style={{ fontSize: 14 }}>Billing</b>
+        <div className="dc-row">
+          {school && <button className="btn btn-ghost" onClick={u.reload}>Refresh</button>}
+          <button className="btn btn-ghost" onClick={() => setPick(true)}>{school ? "Change school" : "Select school"}</button>
+        </div>
+      </div>
+      {!school && <p style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6, margin: "8px 0 0" }}>Select a school to see its WhatsApp message charges for the period that is not invoiced yet.</p>}
+      {school && <p style={{ fontSize: 13, margin: "8px 0 0" }}><b>{school.name}</b></p>}
+      {school && u.loading && <p style={{ color: C.textMuted }}>Loading...</p>}
+      {school && u.err && <p style={{ color: C.red, fontSize: 13 }}>{u.err}</p>}
+      {d && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 12.5, color: C.textMuted, lineHeight: 1.7 }}>
+            Plan: {d.billing?.plan || "-"} ({d.billing?.status || "-"})<br />
+            Period: {d.window?.from || "-"} to {d.window?.to_exclusive || "-"} (end excluded){d.window?.empty ? " - nothing to count yet" : ""}
+          </div>
+          {(d.counted || []).map((r, i) => (
+            <div key={i} className="dc-row" style={{ justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ textTransform: "capitalize" }}>{r.category} <span style={{ fontSize: 12, color: C.textMuted }}>({WHO[r.who] || r.who})</span></span>
+              <span>{r.count} x {inrP(r.rate_paise)} = <b>{inrP(r.amount_paise)}</b></span>
+            </div>
+          ))}
+          {!(d.counted || []).length && <p style={{ color: C.textMuted, fontSize: 13 }}>No chargeable messages in this period.</p>}
+          <div className="dc-row" style={{ justifyContent: "space-between", padding: "8px 0" }}><span>Total ({d.counted_total || 0} messages)</span><b>{inrP(d.amount_paise)}</b></div>
+          <div style={{ fontSize: 12.5, color: C.textMuted, lineHeight: 1.7 }}>
+            Failed (not charged): {d.failed || 0} | Sent today or later: {d.today_or_later || 0}
+            {(d.unattributed || []).length > 0 && <><br />Without school: {d.unattributed.map((x) => `${pLabel(x.purpose)} ${x.n}`).join(", ")}</>}
+          </div>
+          {(d.recent || []).length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <span className="dc-label">Recent messages</span>
+              {d.recent.map((m, i) => (
+                <div key={i} className="dc-row" style={{ justifyContent: "space-between", fontSize: 12.5, padding: "3px 0" }}>
+                  <span>{pLabel(m.purpose)}{m.template_name ? ` - ${m.template_name}` : ""}</span>
+                  <span style={{ color: C.textMuted }}>{m.pricing_category || m.category || "-"} | {m.delivery_status || m.send_status || "-"} | {ago(m.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {pick && (
+        <Modal title="Select school" onClose={() => setPick(false)}>
+          <SchoolList onPick={(x) => { setSchool(x); setPick(false); }} />
+        </Modal>
+      )}
+    </div>
+  );
+};
+
 const WebhookStatus = () => {
   const s = useLoad(() => papi("/whatsapp/webhook/status"), []);
   const [busy, setBusy] = useState(false); const [ask, setAsk] = useState(false);
@@ -378,10 +440,7 @@ const WebhookStatus = () => {
           </div>
         ) : <p style={{ color: C.textMuted, marginTop: 8 }}>No events received in the last 24 hours.</p>}
       </div>
-      <div className="card">
-        <div className="dc-row" style={{ justifyContent: "space-between" }}><b className="syne" style={{ fontSize: 14 }}>Billing</b><Soon /></div>
-        <p style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6, margin: "8px 0 0" }}>Per-school monthly charges from platform-number messages. Meta's billable flag and category are already stored from the status events (see Analysis).</p>
-      </div>
+      <WaBillingCard />
       {ask && (
         <Modal title="Run cleanup now" onClose={() => setAsk(false)}>
           <p style={{ fontSize: 13, color: C.textMuted }}>Deletes raw payloads older than {d.retention?.raw_days} days and events older than {d.retention?.event_days} days. The message log is not touched.</p>
