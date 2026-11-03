@@ -17,6 +17,7 @@ import { AnnouncementsPage } from "./pages/Announcements";
 import { WhatsappPage } from "./pages/Whatsapp";
 import { BillingPage } from "./pages/Billing";
 import { PaymentsPage } from "./pages/Payments";
+import { InquiriesPage } from "./pages/Inquiries";
 import { ProfilePage } from "./pages/Profile";
 import { SearchModal } from "./pages/Search";
 import { DevPanel, OpenSchoolModal } from "./DevPanel";
@@ -37,6 +38,7 @@ const ICON = {
   plus: "M12 5v14M5 12h14",
   bill: "M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM2 10h20M6 15h4",
   pay: "M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+  mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6",
   logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
 };
 const Ico = ({ n, size = 17 }) => (
@@ -47,7 +49,7 @@ const WA_TABS = [["overview", "Overview"], ["numbers", "School numbers"], ["logs
 const PAY_TABS = [["overview", "Overview"], ["events", "Events"]];
 const BILL_TABS = [["overview", "Overview"], ["plans", "Plans"], ["invoices", "Invoices"], ["settings", "Rates & charges"]];
 const NAV = [
-  { group: "Platform", items: [{ id: "schools", label: "Schools", icon: "school" }] },
+  { group: "Platform", items: [{ id: "schools", label: "Schools", icon: "school" }, { id: "inquiries", label: "Inquiries", icon: "mail" }] },
   { group: "Messaging", items: [{ id: "whatsapp", label: "WhatsApp (Meta)", icon: "chat", children: WA_TABS }] },
   { group: "Billing", items: [{ id: "billing", label: "Plans & billing", icon: "bill", children: BILL_TABS }] },
   { group: "Monitoring", items: [{ id: "payments", label: "Gateway payments", icon: "pay", children: PAY_TABS }, { id: "audit", label: "Audit", icon: "audit" }, { id: "announcements", label: "Notices", icon: "bell" }] },
@@ -62,6 +64,7 @@ export const DevApp = () => {
   const [ask, setAsk] = useState(null);
   const [searching, setSearching] = useState(false);
   const [me, setMe] = useState(null);
+  const [newInq, setNewInq] = useState(0); // new website inquiries (badge on the Inquiries menu item)
   const [menu, setMenu] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem("dc_side_collapsed") === "1"; } catch (e) { return false; } });
@@ -79,6 +82,12 @@ export const DevApp = () => {
     } catch (e) { toast(explain(e), "err"); throw e; }
   }, [exit]);
 
+  useEffect(() => {
+    if (!authed || acting) return undefined;
+    const load = () => papi("/inquiries/stats").then((s) => setNewInq(s?.new || 0)).catch(() => {});
+    load(); const t = setInterval(load, 60000); window.addEventListener("dc-inq-changed", load);
+    return () => { clearInterval(t); window.removeEventListener("dc-inq-changed", load); };
+  }, [authed, acting]);
   useEffect(() => { clearSchoolSession(); }, []); // never keep a school token from an earlier visit
   useEffect(() => {
     const out = () => { setAuthed(false); exit(); };
@@ -129,6 +138,7 @@ export const DevApp = () => {
     schools: [["Platform"], ["Schools"]],
     school: [["Platform"], ["Schools", "schools"], ["School details"]],
     new: [["Platform"], ["Schools", "schools"], ["New school"]],
+    inquiries: [["Platform"], ["Inquiries"]],
     whatsapp: [["Messaging"], ["WhatsApp (Meta)", "whatsapp"], [(WA_TABS.find((t) => t[0] === waTab) || [])[1] || "Overview"]],
     billing: [["Billing"], ["Plans & billing", "billing"], [(BILL_TABS.find((t) => t[0] === waTab) || [])[1] || "Overview"]],
     payments: [["Monitoring"], ["Gateway payments", "payments"], [(PAY_TABS.find((t) => t[0] === waTab) || [])[1] || "Overview"]],
@@ -186,7 +196,7 @@ export const DevApp = () => {
                   const on = active(it.id);
                   return (
                     <div key={it.id}>
-                      <button className={`sidebar-link${on ? " active" : ""}`} title={it.label} onClick={() => go(it.id)}><Ico n={it.icon} /><span className="dx-lbl">{it.label}</span></button>
+                      <button className={`sidebar-link${on ? " active" : ""}`} title={it.label} onClick={() => go(it.id)}><Ico n={it.icon} /><span className="dx-lbl">{it.label}</span>{it.id === "inquiries" && newInq > 0 && <span className="dc-chip dx-lbl" style={{ marginLeft: "auto", background: C.primary, color: "#fff" }}>{newInq}</span>}</button>
                       {it.children && on && !collapsed && (
                         <div className="dx-sub">
                           {it.children.map(([k, l]) => <button key={k} className={`dx-subitem${waTab === k ? " on" : ""}`} onClick={() => go(`${it.id}@${k}${id ? `:${id}` : ""}`)}>{l}</button>)}
@@ -212,6 +222,7 @@ export const DevApp = () => {
             {name === "billing" && <BillingPage tab={sub} onTab={(k) => go(`billing@${k}`)} go={go} />}
             {name === "payments" && <PaymentsPage tab={sub} onTab={(k) => go(`payments@${k}`)} />}
             {name === "new" && <NewSchool go={go} />}
+            {name === "inquiries" && <InquiriesPage />}
             {name === "whatsapp" && <WhatsappPage key={id || "all"} focusId={id} tab={sub} onTab={(k) => go(`whatsapp@${k}${id ? `:${id}` : ""}`)} />}
             {name === "audit" && <AuditPage />}
             {name === "announcements" && <AnnouncementsPage />}
