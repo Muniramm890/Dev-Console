@@ -18,6 +18,7 @@ import { WhatsappPage } from "./pages/Whatsapp";
 import { BillingPage } from "./pages/Billing";
 import { PaymentsPage } from "./pages/Payments";
 import { InquiriesPage } from "./pages/Inquiries";
+import { PdfViewerProvider } from "../components/pdf/PdfViewerProvider";
 import { ProfilePage } from "./pages/Profile";
 import { SearchModal } from "./pages/Search";
 import { DevPanel, OpenSchoolModal } from "./DevPanel";
@@ -151,6 +152,7 @@ export const DevApp = () => {
   const theme = { "--p": C.primary, "--pt": C.primaryText || C.primary, "--sa": C.surfaceAlt, "--sf": C.surface, "--tm": C.textMuted, "--tx": C.text, "--bd": C.border, color: C.text };
 
   return (
+    <PdfViewerProvider>
     <div className="dx-app" style={theme}>
       <header className="dx-top">
         <button className="dx-icon" onClick={toggleSide} title="Toggle menu" aria-label="Toggle menu"><Ico n="menu" size={19} /></button>
@@ -235,5 +237,6 @@ export const DevApp = () => {
       {ask && <OpenSchoolModal school={ask} onClose={() => setAsk(null)} onOpen={enter} />}
       <Toasts />
     </div>
+    </PdfViewerProvider>
   );
 };
