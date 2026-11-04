@@ -3,8 +3,7 @@
 import ReactDOM from "react-dom/client";
 import { injectStyles } from "./theme/theme";
 import { DevApp } from "./dev/DevApp";
-import { PdfViewerProvider } from "./components/pdf/PdfViewerProvider";
 import "./dev/dev.css";
 
 injectStyles();
-ReactDOM.createRoot(document.getElementById("root")!).render(<PdfViewerProvider><DevApp /></PdfViewerProvider>);
+ReactDOM.createRoot(document.getElementById("root")!).render(<DevApp />);
