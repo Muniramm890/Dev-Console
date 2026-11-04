@@ -1,6 +1,7 @@
 // @ts-nocheck
 // Console -> Billing: overview, plans, invoices, rates & charges. Talks to /platform/billing/* (backend branch billing-plans).
 import { useEffect, useState } from "react";
+import { openPdf as openViewer } from "../../utils/openDocument";
 import { papi, getToken, ago, explain, toast } from "../api";
 import { API_BASE_URL } from "../../api/client";
 import { Modal, Field, useLoad } from "../ui";
@@ -16,13 +17,13 @@ export const StChip = ({ s }) => { const col = ST_COL[s] || C.textMuted; return 
 const qs = (o) => new URLSearchParams(Object.fromEntries(Object.entries(o).filter(([, v]) => v !== "" && v != null))).toString();
 const dt = (d) => (d ? String(d).slice(0, 10) : "-");
 
-export const openPdf = async (path) => {
+// opens in the same in-app PDF viewer the Admin app uses (pdf.js, zoom, download), instead of a new browser tab
+export const openPdf = async (path, name = "Invoice.pdf", title = "Invoice") => {
   try {
     const res = await fetch(`${API_BASE_URL}/platform${path}`, { headers: { Authorization: `Bearer ${getToken()}` } });
     if (!res.ok) throw new Error(`Could not open the PDF (${res.status})`);
-    const url = URL.createObjectURL(await res.blob());
-    if (!window.open(url, "_blank")) toast("Allow pop-ups to view the PDF", "err");
-    setTimeout(() => URL.revokeObjectURL(url), 120000);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    openViewer({ url: `generated://${Date.now()}`, name, title, mime: "application/pdf", bytes });
   } catch (e) { toast(e.message || "Could not open the PDF", "err"); }
 };
 
@@ -58,7 +59,7 @@ export const InvoiceModal = ({ id, onClose, onChanged }) => {
           )}
           {inv.void_reason && <p style={{ fontSize: 12, color: C.textMuted }}>Void reason: {inv.void_reason}</p>}
           <div className="dc-row" style={{ marginTop: 14 }}>
-            <button className="btn btn-ghost" onClick={() => openPdf(`/billing/invoices/${id}/pdf`)}>Open PDF</button>
+            <button className="btn btn-ghost" onClick={() => openPdf(`/billing/invoices/${id}/pdf`, `${inv.invoice_no}.pdf`, `Invoice ${inv.invoice_no}`)}>Open PDF</button>
             {inv.status !== "void" && balance > 0 && <button className="btn btn-primary" onClick={() => { setPay({ amount: rup(balance), method: "bank", reference: "", paid_on: "" }); setMode("pay"); }}>Record payment</button>}
             {inv.status !== "void" && inv.paid_paise === 0 && <button className="btn btn-ghost" style={{ color: C.red }} onClick={() => setMode("void")}>Void</button>}
           </div>
@@ -391,9 +392,9 @@ const Settings = () => {
       </div>
       <div className="dc-split" style={{ marginBottom: 14 }}>
         <div className="card">
-          <b className="syne" style={{ fontSize: 15 }}>Email and SMS (upcoming)</b>
-          <div className="dc-grid" style={{ marginBottom: 0 }}><Field label="Per email (INR)">{inp(["email"])}</Field><Field label="Per SMS (INR)">{inp(["sms"])}</Field></div>
-          <div style={{ fontSize: 12, color: C.textMuted, marginTop: 8 }}>Saved for later. These are not metered yet, so nothing is billed until email and SMS are integrated.</div>
+          <b className="syne" style={{ fontSize: 15 }}>Email and SMS</b>
+          <div className="dc-grid" style={{ marginBottom: 0 }}><Field label="Per email via School Office sender (INR)">{inp(["email"])}</Field><Field label="Per SMS (INR, upcoming)">{inp(["sms"])}</Field></div>
+          <div style={{ fontSize: 12, color: C.textMuted, marginTop: 8 }}>Email is billed on every email sent through the School Office sender (failed sends and a school's own sender are not charged). SMS is not metered yet, so nothing is billed for it.</div>
         </div>
         <div className="card">
           <b className="syne" style={{ fontSize: 15 }}>Online fee payment charge</b>

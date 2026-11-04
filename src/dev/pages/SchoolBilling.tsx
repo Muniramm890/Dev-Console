@@ -69,7 +69,7 @@ const UsageCard = ({ u }) => {
   const last = d.window.to_exclusive ? new Date(new Date(`${d.window.to_exclusive}T00:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10) : "";
   return (
     <div className="card" style={{ marginBottom: 14 }}>
-      <b className="syne" style={{ fontSize: 14 }}>WhatsApp usage in the next invoice</b>
+      <b className="syne" style={{ fontSize: 14 }}>WhatsApp and email usage in the next invoice</b>
       <div style={{ fontSize: 12, color: C.textMuted, margin: "4px 0 10px", lineHeight: 1.6 }}>
         {d.window.empty ? <>Nothing to count yet: usage is counted from <b>{dt(d.window.from)}</b>, which is not before today.</> : <>Counted from <b>{dt(d.window.from)}</b> to <b>{dt(last)}</b> (today's messages go into the next invoice). Start date {dt(d.billing.started_on)}; already billed up to {d.billing.extras_billed_to ? dt(d.billing.extras_billed_to) : "nothing yet"}.</>}
       </div>
@@ -81,6 +81,7 @@ const UsageCard = ({ u }) => {
           </tbody></table></div>
       ) : <p style={{ color: C.textMuted, fontSize: 12.5 }}>No billable WhatsApp messages in this window.</p>}
       <div style={{ fontSize: 12, color: C.textMuted, marginTop: 8, lineHeight: 1.7 }}>
+        {d.email && <div>Emails sent via School Office sender in this window: <b>{d.email.count}</b> x {inr(d.email.rate_paise)} = <b>{inr(d.email.amount_paise)}</b>{d.email.rate_paise === 0 && d.email.count > 0 ? " (email rate is 0, so nothing is charged)" : ""}</div>}
         {d.failed > 0 && <div>{d.failed} failed message{d.failed === 1 ? "" : "s"} are not charged.</div>}
         {d.today_or_later > 0 && <div>{d.today_or_later} message{d.today_or_later === 1 ? "" : "s"} from today are counted in the next invoice.</div>}
       </div>
