@@ -81,7 +81,7 @@ const UsageCard = ({ u }) => {
           </tbody></table></div>
       ) : <p style={{ color: C.textMuted, fontSize: 12.5 }}>No billable WhatsApp messages in this window.</p>}
       <div style={{ fontSize: 12, color: C.textMuted, marginTop: 8, lineHeight: 1.7 }}>
-        {d.email && <div>Emails sent via School Office sender in this window: <b>{d.email.count}</b> x {inr(d.email.rate_paise)} = <b>{inr(d.email.amount_paise)}</b>{d.email.rate_paise === 0 && d.email.count > 0 ? " (email rate is 0, so nothing is charged)" : ""}</div>}
+        {d.email && <div>Emails sent in this window: <b>{d.email.count}</b>, charge so far <b>{inr(d.email.amount_paise)}</b></div>}
         {d.failed > 0 && <div>{d.failed} failed message{d.failed === 1 ? "" : "s"} are not charged.</div>}
         {d.today_or_later > 0 && <div>{d.today_or_later} message{d.today_or_later === 1 ? "" : "s"} from today are counted in the next invoice.</div>}
       </div>

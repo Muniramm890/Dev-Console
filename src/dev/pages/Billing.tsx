@@ -340,10 +340,11 @@ const Invoices = () => {
 
 // ---------- rates & charges (global, all schools) ----------
 const CATS = [["utility", "Utility"], ["authentication", "Authentication (OTP)"], ["marketing", "Marketing"]];
+const ECATS = [["otp", "OTP / verification"], ["receipt", "Fee receipts"], ["notice", "Notices and alerts"], ["other", "Other"]];
 const toForm = (s) => ({
   gst_pct: String(s.gst_pct), due_days: String(s.due_days), grace_days: String(s.grace_days), invoice_lead_days: String(s.invoice_lead_days), auto_suspend: !!s.auto_suspend,
   wa: Object.fromEntries(["own", "platform"].map((w) => [w, Object.fromEntries(CATS.map(([c]) => [c, rup(s.wa_rates[w][c])]))])),
-  email: rup(s.email_rate_paise), sms: rup(s.sms_rate_paise),
+  email: Object.fromEntries(["own", "platform"].map((w) => [w, Object.fromEntries(ECATS.map(([c]) => [c, rup(s.email_rates[w][c])]))])), sms: rup(s.sms_rate_paise),
   gw: { enabled: !!s.gateway_charge.enabled, pct: String(s.gateway_charge.pct), flat: rup(s.gateway_charge.flat_paise), bearer: s.gateway_charge.bearer },
   company: { ...s.company },
 });
@@ -360,7 +361,7 @@ const Settings = () => {
       await papi("/billing/settings", "PUT", {
         gst_pct: Number(f.gst_pct) || 0, due_days: Number(f.due_days) || 0, grace_days: Number(f.grace_days) || 0, invoice_lead_days: Number(f.invoice_lead_days) || 0, auto_suspend: f.auto_suspend,
         wa_rates: Object.fromEntries(["own", "platform"].map((w) => [w, Object.fromEntries(CATS.map(([c]) => [c, toPaise(f.wa[w][c]) || 0]))])),
-        email_rate_paise: toPaise(f.email) || 0, sms_rate_paise: toPaise(f.sms) || 0,
+        email_rates: Object.fromEntries(["own", "platform"].map((w) => [w, Object.fromEntries(ECATS.map(([c]) => [c, toPaise(f.email[w][c]) || 0]))])), sms_rate_paise: toPaise(f.sms) || 0,
         gateway_charge: { enabled: f.gw.enabled, pct: Number(f.gw.pct) || 0, flat_paise: toPaise(f.gw.flat) || 0, bearer: f.gw.bearer },
         company: f.company,
       });
@@ -390,11 +391,16 @@ const Settings = () => {
         <div className="scroll-x"><table className="table"><thead><tr><th>Category</th><th>School's own number</th><th>School Office number</th></tr></thead>
           <tbody>{CATS.map(([c, l]) => <tr key={c}><td style={{ fontSize: 12.5, fontWeight: 700 }}>{l}</td><td>{inp(["wa", "own", c])}</td><td>{inp(["wa", "platform", c])}</td></tr>)}</tbody></table></div>
       </div>
+      <div className="card" style={{ marginBottom: 14, padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "12px 14px" }}><b className="syne" style={{ fontSize: 15 }}>Email charges (INR per email)</b><div style={{ fontSize: 12, color: C.textMuted, marginTop: 3 }}>Every email sent is counted from the email log (failed sends are free) and billed on that school's next invoice. Leave 0 to not charge.</div></div>
+        <div className="scroll-x"><table className="table"><thead><tr><th>Category</th><th>School's own sender</th><th>School Office sender</th></tr></thead>
+          <tbody>{ECATS.map(([c, l]) => <tr key={c}><td style={{ fontSize: 12.5, fontWeight: 700 }}>{l}</td><td>{inp(["email", "own", c])}</td><td>{inp(["email", "platform", c])}</td></tr>)}</tbody></table></div>
+      </div>
       <div className="dc-split" style={{ marginBottom: 14 }}>
         <div className="card">
-          <b className="syne" style={{ fontSize: 15 }}>Email and SMS</b>
-          <div className="dc-grid" style={{ marginBottom: 0 }}><Field label="Per email via School Office sender (INR)">{inp(["email"])}</Field><Field label="Per SMS (INR, upcoming)">{inp(["sms"])}</Field></div>
-          <div style={{ fontSize: 12, color: C.textMuted, marginTop: 8 }}>Email is billed on every email sent through the School Office sender (failed sends and a school's own sender are not charged). SMS is not metered yet, so nothing is billed for it.</div>
+          <b className="syne" style={{ fontSize: 15 }}>SMS</b>
+          <div className="dc-grid" style={{ marginBottom: 0 }}><Field label="Per SMS (INR, upcoming)">{inp(["sms"])}</Field></div>
+          <div style={{ fontSize: 12, color: C.textMuted, marginTop: 8 }}>SMS is not metered yet, so nothing is billed for it.</div>
         </div>
         <div className="card">
           <b className="syne" style={{ fontSize: 15 }}>Online fee payment charge</b>

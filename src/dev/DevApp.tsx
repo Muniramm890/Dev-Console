@@ -85,9 +85,9 @@ export const DevApp = () => {
 
   useEffect(() => {
     if (!authed || acting) return undefined;
-    const load = () => papi("/inquiries/stats").then((s) => setNewInq(s?.new || 0)).catch(() => {});
-    load(); const t = setInterval(load, 60000); window.addEventListener("dc-inq-changed", load);
-    return () => { clearInterval(t); window.removeEventListener("dc-inq-changed", load); };
+    const load = () => { if (document.hidden) return; papi("/inquiries/stats").then((s) => setNewInq(s?.new || 0)).catch(() => {}); };
+    load(); const t = setInterval(load, 60000); window.addEventListener("dc-inq-changed", load); document.addEventListener("visibilitychange", load);
+    return () => { clearInterval(t); window.removeEventListener("dc-inq-changed", load); document.removeEventListener("visibilitychange", load); };
   }, [authed, acting]);
   useEffect(() => { clearSchoolSession(); }, []); // never keep a school token from an earlier visit
   useEffect(() => {
