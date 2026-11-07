@@ -256,11 +256,11 @@ const AttemptModal = ({ attemptId, onClose, onChanged }) => {
   );
 };
 
-export const ResultsView = ({ test, onBack }) => {
+export const ResultsView = ({ test, onBack, openAttemptId }) => {
   const { dialogConfirm, dialogAlert } = useDialog();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
-  const [open, setOpen] = useState(null);
+  const [open, setOpen] = useState(openAttemptId || null);
   const [tick, setTick] = useState(0);
   const [vis, setVis] = useState(test.result_visibility);
   const [section, setSection] = useState("");

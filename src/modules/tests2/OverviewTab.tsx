@@ -7,6 +7,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { useSession } from "../../contexts/SessionContext";
 import { C } from "../../theme/theme";
+import { timeAgo } from "../../utils/date";
 import { cbt, unwrap } from "./cbtApi";
 import { STATUS_LABEL, mb, qs, statusColor } from "./helpers";
 
@@ -19,11 +20,14 @@ export const OverviewTab = ({ onResults }) => {
   const [f, setF] = useState(null);
   const [dash, setDash] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [queue, setQueue] = useState(null);
+  const [allQ, setAllQ] = useState(false);
   const [showSet, setShowSet] = useState(typeof window !== "undefined" && window.innerWidth > 768);
   const load = () => Promise.all([
     cbt.get("/settings"),
     cbt.get(`/dashboard${qs({ academic_year_id: currentYear && currentYear.id })}`).catch(() => null),
-  ]).then(([sr, dr]) => { const x = unwrap(sr); setD(x); setF(x.settings); setDash(dr ? unwrap(dr) : null); }).catch((e) => dialogAlert(e.message));
+    cbt.get(`/marking-queue${qs({ academic_year_id: currentYear && currentYear.id })}`).catch(() => null),
+  ]).then(([sr, dr, qr]) => { const x = unwrap(sr); setD(x); setF(x.settings); setDash(dr ? unwrap(dr) : null); setQueue(qr ? unwrap(qr) : null); }).catch((e) => dialogAlert(e.message));
   useEffect(() => { load(); }, [currentYear && currentYear.id]); // eslint-disable-line
   if (!d || !f) return <div className="pulse" style={{ padding: 40, textAlign: "center", color: C.primary, fontSize: 12, fontWeight: 600 }}>Loading</div>;
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
@@ -46,6 +50,9 @@ export const OverviewTab = ({ onResults }) => {
   );
   const grid = { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 };
   const SEC = { fontSize: 11.5, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 8 };
+  const openAttempt = async (q) => { if (!onResults) return; try { onResults(unwrap(await cbt.get(`/tests/${q.test_id}`)), q.id); } catch (e) { dialogAlert(e.message); } };
+  const shownQ = queue ? (allQ ? queue : queue.slice(0, 8)) : [];
+  const nMark = dash ? dash.needs_grading : (queue ? queue.length : 0);
   const openTest = async (t) => { if (!onResults) return; try { onResults(unwrap(await cbt.get(`/tests/${t.id}`))); } catch (e) { dialogAlert(e.message); } };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -53,15 +60,19 @@ export const OverviewTab = ({ onResults }) => {
         <span />
         <button className="btn btn-ghost" style={{ fontSize: 12.5 }} onClick={load}>Refresh</button>
       </div>
-      {dash && dash.needs_grading > 0 && (
-        <div className="card" style={{ borderLeft: `4px solid ${C.red}`, fontSize: 13.5 }}>
-          <div><b>{dash.needs_grading}</b> attempt{dash.needs_grading === 1 ? " is" : "s are"} waiting for manual marking.</div>
-          {(dash.pending_tests || []).map((t, i) => (
-            <div key={t.id || i} onClick={() => openTest(t)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "8px 0", marginTop: i === 0 ? 8 : 0, borderTop: `1px solid ${C.border}` }}>
-              <b style={{ fontSize: 13 }}>{t.title}</b>
-              <span style={{ fontSize: 12.5, color: C.red, fontWeight: 600 }}>{t.n} to mark</span>
+      {nMark > 0 && (
+        <div className="card" style={{ borderLeft: `4px solid ${C.red}` }}>
+          <div style={{ fontSize: 13.5, marginBottom: 6 }}><b>{nMark}</b> attempt{nMark === 1 ? " needs" : "s need"} manual marking{shownQ.length ? ". Oldest first - tap one to mark it." : "."}</div>
+          {shownQ.map((q) => (
+            <div key={q.id} onClick={() => openAttempt(q)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+              <div style={{ minWidth: 0 }}>
+                <b style={{ fontSize: 13 }}>{q.student_name}</b>{q.admission_no ? <span style={{ fontSize: 12, color: C.textMuted }}> ({q.admission_no})</span> : null}
+                <div style={{ fontSize: 12, color: C.textMuted }}>{q.title}</div>
+              </div>
+              <span style={{ fontSize: 12, color: C.textMuted, flexShrink: 0 }}>{q.submitted_at ? timeAgo(q.submitted_at) : ""}</span>
             </div>
           ))}
+          {queue && queue.length > 8 && <button className="btn btn-ghost" style={{ marginTop: 8, fontSize: 12.5 }} onClick={() => setAllQ((v) => !v)}>{allQ ? "Show fewer" : `Show all (${queue.length})`}</button>}
         </div>
       )}
       {dash && (

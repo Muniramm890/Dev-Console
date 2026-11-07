@@ -17,7 +17,7 @@ export const QuickTest2Module = () => {
   const [view, setView] = useState(null); // { kind: "results" | "analytics", test }
   const tabs = [{ id: "overview", label: "Overview", icon: "chart" }, { id: "tests", label: "Tests", icon: "test" }, { id: "bank", label: "Question Bank", icon: "book" }];
 
-  if (view && view.kind === "results") return <ResultsView test={view.test} onBack={() => setView(null)} />;
+  if (view && view.kind === "results") return <ResultsView test={view.test} openAttemptId={view.attemptId} onBack={() => setView(null)} />;
   if (view && view.kind === "analytics") return <AnalyticsView test={view.test} onBack={() => setView(null)} />;
   return (
     <div className="slide-in">
@@ -25,7 +25,7 @@ export const QuickTest2Module = () => {
       <PillTabs tabs={tabs} active={tab} onChange={setTab} />
       {tab === "tests" && <TestsTab onResults={(t) => setView({ kind: "results", test: t })} onAnalytics={(t) => setView({ kind: "analytics", test: t })} />}
       {tab === "bank" && <QuestionBankTab />}
-      {tab === "overview" && <OverviewTab onResults={(t) => setView({ kind: "results", test: t })} />}
+      {tab === "overview" && <OverviewTab onResults={(t, attemptId) => setView({ kind: "results", test: t, attemptId })} />}
     </div>
   );
 };
