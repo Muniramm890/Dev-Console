@@ -43,6 +43,11 @@ export const ACTIVITY_META = {
     title: "New Admission", 
     desc: (d, user) => `${d.studentName || "Student enrolled"} • By ${user}` 
   },
+  TEST_ATTEMPTED: {
+    icon: "result", color: C.green,
+    title: "Test Attempted",
+    desc: (d, user) => `${d.testName || "Test"} • By ${user}`
+  },
   HOMEWORK_ASSIGNED: { 
     icon: "timetable", color: C.cyan, 
     title: "Homework Assigned", 

@@ -49,13 +49,19 @@ export const OverviewTab = ({ onResults }) => {
   const openTest = async (t) => { if (!onResults) return; try { onResults(unwrap(await cbt.get(`/tests/${t.id}`))); } catch (e) { dialogAlert(e.message); } };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12.5, color: C.textMuted }}>{currentYear && currentYear.name ? `Academic year ${currentYear.name}` : ""}</span>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span />
         <button className="btn btn-ghost" style={{ fontSize: 12.5 }} onClick={load}>Refresh</button>
       </div>
       {dash && dash.needs_grading > 0 && (
         <div className="card" style={{ borderLeft: `4px solid ${C.red}`, fontSize: 13.5 }}>
-          <b>{dash.needs_grading}</b> attempt{dash.needs_grading === 1 ? " is" : "s are"} waiting for manual marking. Open a test from the Tests tab and go to Results.
+          <div><b>{dash.needs_grading}</b> attempt{dash.needs_grading === 1 ? " is" : "s are"} waiting for manual marking.</div>
+          {(dash.pending_tests || []).map((t, i) => (
+            <div key={t.id || i} onClick={() => openTest(t)} style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "8px 0", marginTop: i === 0 ? 8 : 0, borderTop: `1px solid ${C.border}` }}>
+              <b style={{ fontSize: 13 }}>{t.title}</b>
+              <span style={{ fontSize: 12.5, color: C.red, fontWeight: 600 }}>{t.n} to mark</span>
+            </div>
+          ))}
         </div>
       )}
       {dash && (
