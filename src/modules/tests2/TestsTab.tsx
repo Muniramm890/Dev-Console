@@ -1,6 +1,7 @@
 // @ts-nocheck
 // Quick Test 2.0 - list of tests with publish / close / duplicate / delete and links to results and analytics.
 import { useEffect, useState } from "react";
+import { CardGrid, Crumbs, groupBy } from "./Drill";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Icon } from "../../components/ui/Icon";
 import { PillTabs } from "../../components/ui/PillTabs";
@@ -30,9 +31,15 @@ export const TestsTab = ({ onResults, onAnalytics }) => {
   const [editor, setEditor] = useState({ open: false, id: null });
   const limit = 12;
   const isAdmin = user && user.role === "school_admin";
+  // drill-down: class > subject > chapter > tests (a class is loaded only when it is opened)
+  const [path, setPath] = useState({ grade: null, subject: null, chapter: null });
+  const [cls, setCls] = useState({ tests: [], loading: false, error: "" });
+  const [cpage, setCpage] = useState(1);
+  const flat = !!search.trim(); // typing in the search box switches to a flat server-side search
 
   useEffect(() => { setPage(1); }, [status, grade, search, currentYear && currentYear.id]);
   useEffect(() => {
+    if (!search.trim()) { setLoading(false); return undefined; }
     let live = true;
     const t = setTimeout(() => {
       setLoading(true); setError("");
@@ -41,6 +48,24 @@ export const TestsTab = ({ onResults, onAnalytics }) => {
     }, search ? 350 : 0);
     return () => { live = false; clearTimeout(t); };
   }, [status, grade, search, page, tick, currentYear && currentYear.id]); // eslint-disable-line
+
+  useEffect(() => { setCpage(1); }, [status, path.grade, path.subject, path.chapter]);
+  useEffect(() => {
+    if (!path.grade || flat) return undefined;
+    let live = true;
+    setCls({ tests: [], loading: true, error: "" });
+    (async () => {
+      try {
+        let all = [], p = 1, total = 0;
+        do {
+          const r = unwrap(await cbt.get(`/tests${qs({ academic_year_id: currentYear && currentYear.id, grade_id: path.grade.id, page: p, limit: 100 })}`));
+          all = all.concat(r.tests || []); total = r.total || 0; p += 1;
+        } while (all.length < total && p <= 10);
+        if (live) setCls({ tests: all, loading: false, error: "" });
+      } catch (e) { if (live) setCls({ tests: [], loading: false, error: e.message }); }
+    })();
+    return () => { live = false; };
+  }, [path.grade && path.grade.id, tick, flat, currentYear && currentYear.id]); // eslint-disable-line
 
   const act = async (fn, okMsg) => { try { await fn(); setTick((v) => v + 1); if (okMsg) dialogAlert(okMsg); } catch (e) { dialogAlert(e.message); } };
   const setSt = (t, s) => act(() => cbt.put(`/tests/${t.id}/status`, { status: s }));
@@ -68,25 +93,8 @@ export const TestsTab = ({ onResults, onAnalytics }) => {
     return a;
   };
 
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: 1 }}>
-          <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="Search tests" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <select className="select" value={grade} onChange={(e) => setGrade(e.target.value)}><option value="">All classes</option>{grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
-        </div>
-        <button className="btn btn-primary" onClick={() => setEditor({ open: true, id: null })}><Icon name="plus" size={14} /> New test</button>
-      </div>
-      <PillTabs tabs={[{ id: "", label: "All" }, { id: "0", label: "Draft" }, { id: "1", label: "Live" }, { id: "2", label: "Closed" }, { id: "3", label: "Archived" }]} active={status} onChange={setStatus} />
-
-      {error ? <div className="card" style={{ color: C.red, fontSize: 13 }}>{error}</div> : loading ? (
-        <div className="pulse" style={{ padding: 40, textAlign: "center", color: C.primary, fontSize: 12, fontWeight: 600 }}>Loading</div>
-      ) : data.tests.length === 0 ? (
-        <EmptyState icon="test" title="No tests yet" sub="Create a test from your question bank." action={<button className="btn btn-primary" onClick={() => setEditor({ open: true, id: null })}>New test</button>} />
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {data.tests.map((t) => (
-            <div key={t.id} className="card" style={{ padding: 16 }}>
+  const renderTest = (t) => (
+<div key={t.id} className="card" style={{ padding: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -116,16 +124,84 @@ export const TestsTab = ({ onResults, onAnalytics }) => {
                 {(t.mine || isAdmin) && <button className="btn btn-danger" style={{ fontSize: 12.5 }} onClick={() => del(t)}><Icon name="trash" size={13} /></button>}
               </div>
             </div>
-          ))}
-        </div>
-      )}
-      {pages > 1 && (
+  );
+  const STATUS_TABS = [{ id: "", label: "All" }, { id: "0", label: "Draft" }, { id: "1", label: "Live" }, { id: "2", label: "Closed" }, { id: "3", label: "Archived" }];
+  const listBody = (items, ld, er) => er ? (
+    <div className="card" style={{ color: C.red, fontSize: 13 }}>{er}</div>
+  ) : ld ? (
+    <div className="pulse" style={{ padding: 40, textAlign: "center", color: C.primary, fontSize: 12, fontWeight: 600 }}>Loading</div>
+  ) : items.length === 0 ? (
+    <EmptyState icon="test" title="No tests found" sub="Change the filter or create a new test." action={<button className="btn btn-primary" onClick={() => setEditor({ open: true, id: null })}>Create test</button>} />
+  ) : (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{items.map((t) => <div key={t.id}>{renderTest(t)}</div>)}</div>
+  );
+  const resetTo = (lvl) => setPath((p) => (lvl === 0 ? { grade: null, subject: null, chapter: null } : lvl === 1 ? { ...p, subject: null, chapter: null } : { ...p, chapter: null }));
+  const count = (n) => `${n} test${n === 1 ? "" : "s"}`;
+
+  const renderDrill = () => {
+    const g = path.grade, sb = path.subject, ch = path.chapter;
+    const crumbs = [{ label: "All classes", onClick: g ? () => resetTo(0) : null }];
+    if (g) crumbs.push({ label: g.name, onClick: sb ? () => resetTo(1) : null });
+    if (sb) crumbs.push({ label: sb.label, onClick: ch ? () => resetTo(2) : null });
+    if (ch) crumbs.push({ label: ch.label });
+    let content;
+    if (!g) {
+      content = grades.length === 0 ? <EmptyState icon="test" title="No classes found" sub="Add classes in setup first." /> : (
+        <CardGrid big cards={grades.map((x) => ({ key: x.id, label: x.name, sub: "View subjects", icon: "academic" }))} onPick={(c) => setPath({ grade: { id: c.key, name: c.label }, subject: null, chapter: null })} />
+      );
+    } else if (cls.loading || cls.error) {
+      content = listBody([], cls.loading, cls.error);
+    } else if (!sb) {
+      const gs = groupBy(cls.tests, (t) => t.subject_id || "none", (t) => t.subject_name || "General");
+      content = gs.length === 0 ? listBody([], false, "") : (
+        <CardGrid cards={gs.map((x) => ({ key: x.key, label: x.label, sub: count(x.items.length), icon: "book" }))} onPick={(c) => setPath((p) => ({ ...p, subject: { key: c.key, label: c.label }, chapter: null }))} />
+      );
+    } else {
+      const inSub = cls.tests.filter((t) => (t.subject_id || "none") === sb.key);
+      if (!ch) {
+        const cg = groupBy(inSub, (t) => t.chapter_name || "", (t) => t.chapter_name || "No chapter");
+        content = <CardGrid cards={cg.map((x) => ({ key: x.key, label: x.label, sub: count(x.items.length), icon: "test" }))} onPick={(c) => setPath((p) => ({ ...p, chapter: { key: c.key, label: c.label } }))} />;
+      } else {
+        const all = inSub.filter((t) => (t.chapter_name || "") === ch.key);
+        const shown = status === "" ? all : all.filter((t) => String(t.status) === status);
+        const cp = Math.max(1, Math.ceil(shown.length / limit));
+        content = (
+          <div>
+            <PillTabs tabs={STATUS_TABS} active={status} onChange={setStatus} />
+            {listBody(shown.slice((cpage - 1) * limit, cpage * limit), false, "")}
+            {cp > 1 && (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 14 }}>
+                <button className="btn btn-ghost" disabled={cpage <= 1} onClick={() => setCpage(cpage - 1)}>Previous</button>
+                <span style={{ fontSize: 12.5, color: C.textMuted }}>Page {cpage} of {cp}</span>
+                <button className="btn btn-ghost" disabled={cpage >= cp} onClick={() => setCpage(cpage + 1)}>Next</button>
+              </div>
+            )}
+          </div>
+        );
+      }
+    }
+    return <div><Crumbs items={crumbs} />{content}</div>;
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+        <button className="btn btn-primary" onClick={() => setEditor({ open: true, id: null })}><Icon name="plus" size={14} /> Create test</button>
+        <input className="input" style={{ flex: 1, minWidth: 180 }} placeholder="Search all tests by title or chapter" value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+      {flat ? (
+        <div>
+          <PillTabs tabs={STATUS_TABS} active={status} onChange={setStatus} />
+          {listBody(data.tests, loading, error)}
+      {flat && pages > 1 && (
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 14 }}>
           <button className="btn btn-ghost" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
           <span style={{ fontSize: 12.5, color: C.textMuted }}>Page {page} of {pages}</span>
           <button className="btn btn-ghost" disabled={page >= pages} onClick={() => setPage(page + 1)}>Next</button>
         </div>
       )}
+        </div>
+      ) : renderDrill()}
       <TestEditor open={editor.open} testId={editor.id} onClose={() => setEditor({ open: false, id: null })} onSaved={() => setTick((v) => v + 1)} />
     </div>
   );

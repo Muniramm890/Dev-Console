@@ -182,7 +182,7 @@ export const QuestionEditor = ({ open, onClose, questionId, defaults, onSaved, d
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontSize: 12, color: C.textMuted, marginBottom: 6, fontWeight: 600 }}>Matching pairs (left item - its correct right item)</label>
               {f.pairs.map((p, i) => (
-                <div key={i} style={{ ...box, display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "center" }}>
+                <div key={i} className="qt-pairs" style={{ ...box, display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "center" }}>
                   <OptLine item={p.l} onChange={(x) => setPair(i, "l", x)} left={<b style={{ width: 20 }}>{i + 1}</b>} />
                   <OptLine item={p.r} onChange={(x) => setPair(i, "r", x)} />
                   {f.pairs.length > 2 ? <button type="button" className="btn btn-ghost" onClick={() => set("pairs", f.pairs.filter((_, k) => k !== i))} style={{ padding: "5px 8px" }}><Icon name="trash" size={13} /></button> : <span />}

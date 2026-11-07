@@ -9,21 +9,22 @@ import { C } from "../../theme/theme";
 import { useGradesAndSections } from "../attendance/useGradesAndSections";
 import { cbt, unwrap, useSubjects } from "./cbtApi";
 import { CodeImportModal, PromptModal } from "./CodeImportModal";
+import { CardGrid, Crumbs } from "./Drill";
 import { QuestionEditor } from "./QuestionEditor";
 import { RichText } from "./RichText";
 import { TEMPLATE_ROWS, TYPES, csvToQuestions, downloadCsv, qs, questionRef, typeShort } from "./helpers";
 
-export const QuestionList = ({ selectable = false, selected, onToggle, onEdit, onDelete, reloadKey = 0, fixed = {} }) => {
+export const QuestionList = ({ selectable = false, selected, onToggle, onEdit, onDelete, reloadKey = 0, fixed = {}, scoped = false }) => {
   const { grades } = useGradesAndSections();
   const subjects = useSubjects();
-  const [f, setF] = useState({ grade_id: fixed.grade_id || "", subject_id: fixed.subject_id || "", q_type: "", difficulty: "", search: "", mine: "" });
+  const [f, setF] = useState({ grade_id: fixed.grade_id || "", subject_id: fixed.subject_id || "", topic: fixed.topic || "", q_type: "", difficulty: "", search: "", mine: "" });
   const [page, setPage] = useState(1);
   const [data, setData] = useState({ questions: [], total: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const limit = 15;
 
-  useEffect(() => { setPage(1); }, [f.grade_id, f.subject_id, f.q_type, f.difficulty, f.search, f.mine]);
+  useEffect(() => { setPage(1); }, [f.grade_id, f.subject_id, f.topic, f.q_type, f.difficulty, f.search, f.mine]);
   useEffect(() => {
     let live = true;
     const t = setTimeout(() => {
@@ -31,7 +32,7 @@ export const QuestionList = ({ selectable = false, selected, onToggle, onEdit, o
       cbt.get(`/questions${qs({ ...f, page, limit })}`).then((r) => { if (live) setData(unwrap(r)); }).catch((e) => { if (live) setError(e.message); }).finally(() => { if (live) setLoading(false); });
     }, f.search ? 350 : 0);
     return () => { live = false; clearTimeout(t); };
-  }, [f.grade_id, f.subject_id, f.q_type, f.difficulty, f.search, f.mine, page, reloadKey]); // eslint-disable-line
+  }, [f.grade_id, f.subject_id, f.topic, f.q_type, f.difficulty, f.search, f.mine, page, reloadKey]); // eslint-disable-line
 
   const pages = Math.max(1, Math.ceil((data.total || 0) / limit));
   const setK = (k, v) => setF((p) => ({ ...p, [k]: v }));
@@ -39,8 +40,10 @@ export const QuestionList = ({ selectable = false, selected, onToggle, onEdit, o
     <div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
         <input className="input" style={{ flex: 2, minWidth: 180 }} placeholder="Search question text or topic" value={f.search} onChange={(e) => setK("search", e.target.value)} />
+        {!scoped && (<>
         <select className="select" value={f.grade_id} onChange={(e) => setK("grade_id", e.target.value)}><option value="">All classes</option>{grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
         <select className="select" value={f.subject_id} onChange={(e) => setK("subject_id", e.target.value)}><option value="">All subjects</option>{subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+        </>)}
         <select className="select" value={f.q_type} onChange={(e) => setK("q_type", e.target.value)}><option value="">All types</option>{TYPES.map((t) => <option key={t.id} value={t.id}>{t.short}</option>)}</select>
         <select className="select" value={f.difficulty} onChange={(e) => setK("difficulty", e.target.value)}><option value="">Any difficulty</option>{[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>Level {d}</option>)}</select>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}><input type="checkbox" checked={f.mine === "1"} onChange={(e) => setK("mine", e.target.checked ? "1" : "")} /> Mine</label>
@@ -189,6 +192,57 @@ export const QuestionBankTab = () => {
   const [code, setCode] = useState(false);
   const [prompt, setPrompt] = useState(false);
   const [tick, setTick] = useState(0);
+  // drill-down: class > subject > topic > questions (topics come from /cbt/topics, questions load only for the opened topic)
+  const { grades } = useGradesAndSections();
+  const subjects = useSubjects();
+  const [path, setPath] = useState({ grade: null, subject: null, topic: undefined });
+  const [showAll, setShowAll] = useState(false);
+  const [topics, setTopics] = useState({ rows: [], loading: false, error: "" });
+  useEffect(() => {
+    if (!path.grade || !path.subject || showAll) return undefined;
+    let live = true;
+    setTopics({ rows: [], loading: true, error: "" });
+    cbt.get(`/topics${qs({ grade_id: path.grade.id, subject_id: path.subject.id })}`)
+      .then((r) => { const d = unwrap(r); if (live) setTopics({ rows: Array.isArray(d) ? d : [], loading: false, error: "" }); })
+      .catch((e) => { if (live) setTopics({ rows: [], loading: false, error: e.message }); });
+    return () => { live = false; };
+  }, [path.grade && path.grade.id, path.subject && path.subject.id, tick, showAll]); // eslint-disable-line
+  const resetTo = (lvl) => setPath((p) => (lvl === 0 ? { grade: null, subject: null, topic: undefined } : lvl === 1 ? { ...p, subject: null, topic: undefined } : { ...p, topic: undefined }));
+  const renderBody = () => {
+    if (showAll) {
+      return (
+        <div>
+          <button className="btn btn-ghost" style={{ marginBottom: 12 }} onClick={() => setShowAll(false)}>Back to classes</button>
+          <QuestionList reloadKey={tick} onEdit={(q) => setEditor({ open: true, id: q.id })} onDelete={del} />
+        </div>
+      );
+    }
+    const g = path.grade, sb = path.subject, tp = path.topic;
+    const crumbs = [{ label: "All classes", onClick: g ? () => resetTo(0) : null }];
+    if (g) crumbs.push({ label: g.name, onClick: sb ? () => resetTo(1) : null });
+    if (sb) crumbs.push({ label: sb.name, onClick: tp !== undefined ? () => resetTo(2) : null });
+    if (tp !== undefined) crumbs.push({ label: tp === "" ? "All topics" : tp });
+    let content;
+    if (!g) {
+      content = (
+        <div>
+          <CardGrid big cards={grades.map((x) => ({ key: x.id, label: x.name, sub: "View subjects", icon: "academic" }))} onPick={(c) => setPath({ grade: { id: c.key, name: c.label }, subject: null, topic: undefined })} />
+          <div style={{ marginTop: 14 }}><button className="btn btn-ghost" onClick={() => setShowAll(true)}>Search all questions</button></div>
+        </div>
+      );
+    } else if (!sb) {
+      content = <CardGrid cards={subjects.map((x) => ({ key: x.id, label: x.name, sub: "View topics", icon: "book" }))} onPick={(c) => setPath((p) => ({ ...p, subject: { id: c.key, name: c.label }, topic: undefined }))} />;
+    } else if (tp === undefined) {
+      content = topics.error ? <div className="card" style={{ color: C.red, fontSize: 13 }}>{topics.error}</div> : topics.loading ? (
+        <div className="pulse" style={{ padding: 30, textAlign: "center", color: C.primary, fontSize: 12, fontWeight: 600 }}>Loading</div>
+      ) : (
+        <CardGrid cards={[{ key: "__all", label: "All topics", sub: "Every question in this subject", icon: "book" }].concat(topics.rows.map((x) => ({ key: x.topic, label: x.topic, sub: `${x.n} question${x.n === 1 ? "" : "s"}`, icon: "file" })))} onPick={(c) => setPath((p) => ({ ...p, topic: c.key === "__all" ? "" : c.label }))} />
+      );
+    } else {
+      content = <QuestionList key={`${g.id}|${sb.id}|${tp}`} scoped reloadKey={tick} fixed={{ grade_id: g.id, subject_id: sb.id, topic: tp }} onEdit={(q) => setEditor({ open: true, id: q.id })} onDelete={del} />;
+    }
+    return <div><Crumbs items={crumbs} />{content}</div>;
+  };
   const del = async (q) => {
     if (!(await dialogConfirm("Delete this question? Tests that already use it keep their copy.", "Delete question"))) return;
     try { await cbt.del(`/questions/${q.id}`); setTick((v) => v + 1); } catch (e) { dialogAlert(e.message); }
@@ -201,7 +255,7 @@ export const QuestionBankTab = () => {
         <button className="btn btn-ghost" onClick={() => setBulk(true)}><Icon name="upload" size={14} /> Bulk import</button>
         <button className="btn btn-primary" onClick={() => setEditor({ open: true, id: null })}><Icon name="plus" size={14} /> New question</button>
       </div>
-      <QuestionList reloadKey={tick} onEdit={(q) => setEditor({ open: true, id: q.id })} onDelete={del} />
+      {renderBody()}
       <QuestionEditor open={editor.open} questionId={editor.id} onClose={() => setEditor({ open: false, id: null })} onSaved={() => setTick((v) => v + 1)} />
       <BulkImport open={bulk} onClose={() => setBulk(false)} onDone={() => setTick((v) => v + 1)} />
       <CodeImportModal open={code} onClose={() => setCode(false)} onDone={() => setTick((v) => v + 1)} />

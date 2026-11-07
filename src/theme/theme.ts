@@ -139,7 +139,10 @@ export const injectStyles = () => {
        >= 360px wide, otherwise it stacks. Use: <div className="grid-auto-2"> ... </div>  (children shrink safely, min-width:0) */
     .grid-auto-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:16px;}
     .grid-auto-2>*{min-width:0;}
+    .qt-m-only{display:none;}
     @media(max-width:768px){
+      .qt-kpi{grid-template-columns:repeat(2,1fr)!important;gap:10px!important;}
+      .qt-m-only{display:block!important;}
       .sidebar-desktop{display:none!important;}
       .main-content{margin-left:0!important;}
       .grid-4{grid-template-columns:1fr 1fr!important;}
@@ -185,6 +188,8 @@ export const injectStyles = () => {
     @media(max-width:640px){
       .form-grid-responsive{grid-template-columns:1fr!important;}
       .grid-4,.grid-3{grid-template-columns:1fr!important;}
+      .qt-pairs{grid-template-columns:1fr!important;}
+      .modal{padding:16px!important;}
     }
     .logo-loader-spin{display:inline-block;border-radius:14px;overflow:hidden;animation:logoSpinZoom 1.4s ease-in-out infinite;}
     @keyframes logoSpinZoom{0%{transform:scale(0.82) rotate(0deg);opacity:0.75;}50%{transform:scale(1.08) rotate(180deg);opacity:1;}100%{transform:scale(0.82) rotate(360deg);opacity:0.75;}}

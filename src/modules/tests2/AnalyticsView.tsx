@@ -29,13 +29,13 @@ export const AnalyticsView = ({ test, onBack }) => {
       <SectionHeader title={d.test.title} sub="Analytics (best attempt of each student)" action={<div style={{ display: "flex", gap: 8 }}>
         <button className="btn btn-ghost" onClick={() => downloadCsv(`${d.test.title}-questions.csv`, [["Q", "Type", "Topic", "Attempted", "Correct", "Wrong", "Skipped", "Correct %", "Avg time (s)", "Level"], ...d.questions.map((q) => [q.q_no, typeShort(q.q_type), q.topic, q.attempted, q.correct, q.incorrect, q.unattempted, q.correct_pct, q.avg_time_sec, q.level])])}><Icon name="download" size={14} /> Question CSV</button>
         <button className="btn btn-ghost" onClick={onBack}>Back</button></div>} />
-      <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 16 }}>
+      <div className="qt-kpi" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 16 }}>
         <KpiCard label="Participation" value={s.participation_pct == null ? "-" : `${s.participation_pct}%`} sub={`${s.submitted} of ${s.assigned} students`} icon="users" color={C.blue} />
         <KpiCard label="Average" value={s.avg_pct == null ? "-" : `${s.avg_pct}%`} sub={`Std dev ${s.std_dev == null ? "-" : s.std_dev}`} icon="chart" color={C.primary} />
         <KpiCard label="Highest / Lowest" value={s.highest_pct == null ? "-" : `${s.highest_pct}% / ${s.lowest_pct}%`} sub="Of submitted" icon="trophy" color={C.green} />
         <KpiCard label="Pass rate" value={s.pass_pct == null ? "-" : `${s.pass_pct}%`} sub={s.passed == null ? "No pass marks set" : `${s.passed} passed`} icon="check" color={C.cyan} />
       </div>
-      <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 20 }}>
+      <div className="qt-kpi" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 20 }}>
         <KpiCard label="Avg time" value={mmss(s.avg_time_sec)} sub="Per attempt" icon="schedule" color={C.purple} />
         <KpiCard label="Started" value={s.started} sub="Attempts begun" icon="test" color={C.blue} />
         <KpiCard label="Needs marking" value={s.pending_grading} sub="Written answers" icon="edit" color={C.yellow} />
