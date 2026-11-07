@@ -44,33 +44,41 @@ export const OverviewTab = ({ onResults }) => {
       <input className="input" type="number" min={min} step={step} style={{ width: "100%" }} disabled={!isAdmin} value={f[k]} onChange={(e) => set(k, e.target.value)} />
     </div>
   );
-  const grid = { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 16 };
+  const grid = { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 };
+  const SEC = { fontSize: 11.5, fontWeight: 700, color: C.textMuted, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 8 };
   const openTest = async (t) => { if (!onResults) return; try { onResults(unwrap(await cbt.get(`/tests/${t.id}`))); } catch (e) { dialogAlert(e.message); } };
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12.5, color: C.textMuted }}>{currentYear && currentYear.name ? `Academic year ${currentYear.name}` : ""}</span>
         <button className="btn btn-ghost" style={{ fontSize: 12.5 }} onClick={load}>Refresh</button>
       </div>
       {dash && dash.needs_grading > 0 && (
-        <div className="card" style={{ marginBottom: 16, borderLeft: `4px solid ${C.red}`, fontSize: 13.5 }}>
+        <div className="card" style={{ borderLeft: `4px solid ${C.red}`, fontSize: 13.5 }}>
           <b>{dash.needs_grading}</b> attempt{dash.needs_grading === 1 ? " is" : "s are"} waiting for manual marking. Open a test from the Tests tab and go to Results.
         </div>
       )}
       {dash && (
+        <div>
+        <div style={SEC}>Tests right now</div>
         <div className="qt-kpi" style={grid}>
           <KpiCard label="Live tests" value={dash.tests.live} sub="Open for students" icon="test" color={C.green} />
           <KpiCard label="Taking now" value={dash.taking_now} sub="Students in a test" icon="users" color={C.cyan} />
           <KpiCard label="Needs marking" value={dash.needs_grading} sub="Written answers" icon="edit" color={dash.needs_grading > 0 ? C.red : C.textMuted} />
           <KpiCard label="Draft tests" value={dash.tests.draft} sub={`${dash.tests.closed} closed, ${dash.tests.archived} archived`} icon="file" color={C.yellow} />
         </div>
+        </div>
       )}
+      <div>
+      <div style={SEC}>Performance and question bank</div>
       <div className="qt-kpi" style={grid}>
         {dash && <KpiCard label="Attempts (30 days)" value={dash.attempts_last_30_days} sub="Submitted this year" icon="result" color={C.blue} />}
         {dash && <KpiCard label="Average score" value={dash.avg_pct_last_30_days == null ? "-" : `${dash.avg_pct_last_30_days}%`} sub="Last 30 days" icon="chart" color={C.purple} />}
         <KpiCard label="Questions" value={u.questions} sub="In your bank" icon="book" color={C.primary} />
         <KpiCard label="Tests" value={u.tests} sub={`${u.attempts} attempts, all years`} icon="test" color={C.blue} />
       </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "start" }}>
       {dash && (dash.recent_tests || []).length > 0 && (
         <SectionCard icon="test" title="Recent tests" sub="Latest five tests of this academic year. Tap one to open its results.">
           {dash.recent_tests.map((t, i) => (
@@ -90,9 +98,11 @@ export const OverviewTab = ({ onResults }) => {
         </div>
         <div style={{ fontSize: 12.5, color: C.textMuted, marginTop: 8 }}>{pct}% used{pct > 85 ? " - almost full. Use Free up storage in the settings below." : ""}</div>
       </SectionCard>
-      <button className="btn btn-ghost" style={{ marginBottom: 12 }} onClick={() => setShowSet((v) => !v)}>{showSet ? "Hide settings" : "Show settings"}</button>
+      </div>
+      <div>
+      <button className="btn btn-ghost" onClick={() => setShowSet((v) => !v)}>{showSet ? "Hide settings" : "Show settings"}</button>
       {showSet && (
-      <SectionCard icon="setup" title="Online test settings" sub={isAdmin ? "Applies to your whole school" : "Only the school admin can change these"}>
+      <SectionCard style={{ marginTop: 12 }} icon="setup" title="Online test settings" sub={isAdmin ? "Applies to your whole school" : "Only the school admin can change these"}>
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
           <Num label="Image storage quota (MB)" k="storage_quota_mb" min="50" />
           <Num label="Keep proctoring photos (days)" k="proctor_retention_days" min="1" />
@@ -111,6 +121,7 @@ export const OverviewTab = ({ onResults }) => {
         )}
       </SectionCard>
       )}
+      </div>
     </div>
   );
 };
